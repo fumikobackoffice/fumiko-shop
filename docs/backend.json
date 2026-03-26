@@ -1,0 +1,177 @@
+
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the Fumiko Shop application.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "password": { "type": "string" },
+        "phone": { "type": "string" },
+        "contactEmail": { "type": "string", "format": "email" },
+        "dob": { "type": "string", "format": "date" },
+        "lineId": { "type": "string" },
+        "bankName": { "type": "string" },
+        "bankAccountNumber": { "type": "string" },
+        "nationalIdCardUrl": { "type": "string", "format": "uri" },
+        "faceImageUrl": { "type": "string", "format": "uri" },
+        "role": { "type": "string", "enum": ["seller", "admin", "super_admin"] },
+        "status": { "type": "string", "enum": ["active", "archived"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "pointsBalance": { "type": "number" },
+        "permissions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of permission keys granted to admin users."
+        }
+      },
+      "required": ["id", "name", "email", "password", "role"]
+    },
+    "UserRole": {
+      "title": "User Role",
+      "type": "object",
+      "properties": { "role": { "type": "string", "enum": ["seller", "admin", "super_admin"] } },
+      "required": ["role"]
+    },
+    "Branch": {
+      "title": "Branch",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "branchCode": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "type": { "type": "string", "enum": ["MAIN", "SUB"] },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "subdistrict": { "type": "string" },
+        "district": { "type": "string" },
+        "province": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "country": { "type": "string" },
+        "googleMapsUrl": { "type": "string", "format": "uri" },
+        "contracts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "documentIds": { "type": "array", "items": { "type": "string" } },
+              "startDate": { "type": "string", "format": "date-time" },
+              "expiryDate": { "type": "string", "format": "date-time" },
+              "notes": { "type": "string" },
+              "securityDeposit": { "type": "number" },
+              "interestRate": { "type": "number" },
+              "status": { "type": "string", "enum": ["ACTIVE", "CANCELLED"] }
+            }
+          }
+        },
+        "recurringFees": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "amount": { "type": "number" },
+              "cycle": { "type": "string", "enum": ["MONTHLY", "YEARLY", "NONE"] },
+              "nextBillingDate": { "type": "string", "format": "date-time" },
+              "billingEndDate": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "securityDeposit": { "type": "number", "description": "Current active brand security deposit amount" },
+        "status": { "type": "string", "enum": ["OPERATING", "FOLLOW_UP", "SUSPENDED", "CLOSED"] },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "FeeInvoice": {
+      "title": "Fee Invoice",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "branchId": { "type": "string" },
+        "branchName": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "PROCESSING", "PAID", "CANCELLED"] },
+        "dueDate": { "type": "string", "format": "date-time" },
+        "billingPeriod": { "type": "string" },
+        "paymentSlipUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "StoreSettings": {
+      "title": "Store Settings",
+      "type": "object",
+      "properties": {
+        "announcement": {
+          "type": "object",
+          "properties": {
+            "active": { "type": "boolean" },
+            "title": { "type": "string" },
+            "content": { "type": "string" },
+            "imageUrl": { "type": "string" },
+            "hasAckButton": { "type": "boolean" },
+            "frequency": { "type": "string", "enum": ["ONLY_ONCE", "EVERY_LOGIN"] },
+            "updatedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      }
+    },
+    "LabelTemplate": {
+      "title": "Label Template",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "templateName": { "type": "string", "description": "Display name for the saved template" },
+        "recipientName": { "type": "string" },
+        "recipientPhone": { "type": "string" },
+        "addressLine1": { "type": "string" },
+        "subdistrict": { "type": "string" },
+        "district": { "type": "string" },
+        "province": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["templateName", "recipientName", "recipientPhone", "addressLine1", "subdistrict", "district", "province", "postalCode"]
+    },
+    "GuestCustomer": {
+      "title": "Guest Customer",
+      "type": "object",
+      "description": "Represents an external customer who is not in the system membership.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "addressLine1": { "type": "string" },
+        "subdistrict": { "type": "string" },
+        "district": { "type": "string" },
+        "province": { "type": "string" },
+        "postalCode": { "type": "string" },
+        "lastPurchaseAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "phone"]
+    }
+  },
+  "auth": { "providers": ["email"] },
+  "firestore": {
+    "structure": [
+      { "path": "/users/{userId}", "definition": { "entityName": "User" } },
+      { "path": "/user_roles/{userId}", "definition": { "entityName": "UserRole" } },
+      { "path": "/branches/{branchId}", "definition": { "entityName": "Branch" } },
+      { "path": "/feeInvoices/{invoiceId}", "definition": { "entityName": "FeeInvoice" } },
+      { "path": "/settings/store", "definition": { "entityName": "StoreSettings" } },
+      { "path": "/labelTemplates/{templateId}", "definition": { "entityName": "LabelTemplate" } },
+      { "path": "/guestCustomers/{guestId}", "definition": { "entityName": "GuestCustomer" } }
+    ]
+  }
+}

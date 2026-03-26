@@ -1,0 +1,41 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    /**
+     * ระบบนี้ใช้ Custom Authentication (เก็บ ID ใน localStorage) 
+     * ไม่ได้ใช้ Firebase Authentication Service (request.auth จะเป็น null เสมอ)
+     * จึงอนุญาตให้บุคคลทั่วไป (Public) สามารถอ่านและค้นหาข้อมูลได้
+     * ส่วนการเขียนข้อมูลอนุญาตให้ทำได้เพื่อให้ระบบทำงานต่อเนื่อง
+     */
+    match /{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Explicitly allow critical paths for smooth collection-level operations
+    match /feeInvoices/{invoiceId} {
+      allow read, write: if true;
+    }
+    
+    match /orders/{orderId} {
+      allow read, write: if true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+    
+    // Support for collection group queries across the database
+    match /{path=**}/stockAdjustments/{adjustmentId} {
+      allow read, write: if true;
+    }
+
+    /**
+     * ค้นหาที่จำเป็นต้องสร้าง Index (Composite Index):
+     * 1. Collection: orders
+     *    Fields: buyerId (Ascending), orderDate (Descending)
+     *    เหตุผล: ใช้ในหน้าประวัติการสั่งซื้อของลูกค้าเพื่อกรองตาม ID และเรียงตามวันที่
+     */
+  }
+}

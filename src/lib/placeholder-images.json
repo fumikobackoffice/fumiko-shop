@@ -1,0 +1,52 @@
+{
+  "placeholderImages": [
+    {
+      "id": "prod_1",
+      "description": "Elegant handcrafted ceramic vase.",
+      "imageUrl": "https://images.unsplash.com/photo-1631125915973-e0d155a14e4e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjZXJhbWljJTIwdmFzZXxlbnwwfHx8fDE3Njg2ODkyMzV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "ceramic vase"
+    },
+    {
+      "id": "prod_2",
+      "description": "Woven straw hat for sunny days.",
+      "imageUrl": "https://images.unsplash.com/photo-1612215033154-0f12117b1de2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzdHJhdyUyMGhhdHxlbnwwfHx8fDE3Njg3NTIxMjN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "straw hat"
+    },
+    {
+      "id": "prod_3",
+      "description": "Artisanal scented candle with essential oils.",
+      "imageUrl": "https://images.unsplash.com/photo-1603006905003-be475563bc59?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzY2VudGVkJTIwY2FuZGxlfGVufDB8fHx8MTc2ODY1NzIwOHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "scented candle"
+    },
+    {
+      "id": "prod_4",
+      "description": "Minimalist leather wallet.",
+      "imageUrl": "https://images.unsplash.com/photo-1606503825008-909a67e63c3d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxsZWF0aGVyJTIwd2FsbGV0fGVufDB8fHx8MTc2ODczMzg2Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "leather wallet"
+    },
+    {
+      "id": "prod_5",
+      "description": "Organic green tea leaves from local farms.",
+      "imageUrl": "https://images.unsplash.com/photo-1701520839071-55bdfe64c5ed?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxncmVlbiUyMHRlYXxlbnwwfHx8fDE3Njg3NTIxMjN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "green tea"
+    },
+    {
+      "id": "prod_6",
+      "description": "Hand-painted silk scarf with traditional patterns.",
+      "imageUrl": "https://images.unsplash.com/photo-1689193502879-362660fad4a8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzaWxrJTIwc2NhcmZ8ZW58MHx8fHwxNzY4NjUxOTc4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "silk scarf"
+    },
+    {
+      "id": "prod_7",
+      "description": "Set of 4 wooden coasters with intricate carvings.",
+      "imageUrl": "https://images.unsplash.com/photo-1701532698084-cac813740ef5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHx3b29kZW4lMjBjb2FzdGVyc3xlbnwwfHx8fDE3Njg3NTIxMjR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "wooden coasters"
+    },
+    {
+      "id": "prod_8",
+      "description": "Spicy mango chutney, a taste of Thailand.",
+      "imageUrl": "https://images.unsplash.com/photo-1591465619339-60fce055bc82?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxtYW5nbyUyMGNodXRuZXl8ZW58MHx8fHwxNzY4NzUyMTI0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mango chutney"
+    }
+  ]
+}
