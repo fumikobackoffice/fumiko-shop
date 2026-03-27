@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 function CountdownTimer({ expiryTimestamp, onExpiry }: { expiryTimestamp: any, onExpiry: () => void }) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -136,6 +137,8 @@ export function AdminOrderDetails({ order, orderItems: orderItemsProp, buyer, ad
     const [adminSlipPreview, setAdminSlipPreview] = useState<string | null>(null);
     const [adminPaymentAmount, setAdminPaymentAmount] = useState<number>(order.balanceAmount || 0);
     const [isAdminSlipPending, startAdminSlipTransition] = useTransition();
+
+    const { uploadImage, deleteImage } = useUploadImage('orders');
 
     const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'store') : null, [firestore]);
     const { data: storeSettings } = useDoc<StoreSettings>(settingsRef);
@@ -443,23 +446,35 @@ export function AdminOrderDetails({ order, orderItems: orderItemsProp, buyer, ad
 
     const handleRemoveShipment = (idToRemove: string) => setShipments(prev => prev.filter(s => s.id !== idToRemove));
 
-    const handleProofImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleProofImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files) return;
-        const fileReadPromises = Array.from(files).map(file => {
-            return new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(reader.result as string);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
+        toast({ title: 'กำลังอัปโหลด...', description: 'กรุณารอสักครู่' });
+        try {
+            const uploadPromises = Array.from(files).map(async (file) => {
+                if (file.size > 5 * 1024 * 1024) {
+                    toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: `รูป ${file.name} มีขนาดเกิน 5MB` });
+                    return null;
+                }
+                return uploadImage(file);
             });
-        });
-        Promise.all(fileReadPromises).then(results => {
-            setShipmentProofImages(prev => [...prev, ...results]);
-        }).catch(error => console.error("Error reading files:", error));
+            const urls = await Promise.all(uploadPromises);
+            const validUrls = urls.filter(Boolean) as string[];
+            if (validUrls.length > 0) {
+                setShipmentProofImages(prev => [...prev, ...validUrls]);
+                toast({ title: 'อัปโหลดสำเร็จ' });
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast({ variant: 'destructive', title: 'บางไฟล์อัปโหลดล้มเหลว' });
+        }
     };
 
-    const handleRemoveProofImage = (index: number) => setShipmentProofImages(prev => prev.filter((_, i) => i !== index));
+    const handleRemoveProofImage = (index: number) => {
+        const removedUrl = shipmentProofImages[index];
+        setShipmentProofImages(prev => prev.filter((_, i) => i !== index));
+        if (removedUrl) deleteImage(removedUrl);
+    };
 
     const handleAdminAttachSlip = async () => {
         if (!firestore || !order || !adminUser || !adminSlipPreview) return;
@@ -517,16 +532,21 @@ export function AdminOrderDetails({ order, orderItems: orderItemsProp, buyer, ad
         });
     };
 
-    const handleAdminFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAdminFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            if (file.size > 700 * 1024) {
-                toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: 'กรุณาใช้รูปไม่เกิน 700KB' });
+            if (file.size > 5 * 1024 * 1024) {
+                toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: 'กรุณาใช้รูปภาพขนาดไม่เกิน 5MB' });
                 return;
             }
-            const reader = new FileReader();
-            reader.onload = (e) => setAdminSlipPreview(e.target?.result as string);
-            reader.readAsDataURL(file);
+            toast({ title: 'กำลังอัปโหลด...', description: 'กรุณารอสักครู่' });
+            try {
+                const url = await uploadImage(file);
+                setAdminSlipPreview(url);
+                toast({ title: 'อัปโหลดสำเร็จ' });
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว' });
+            }
         }
     };
 

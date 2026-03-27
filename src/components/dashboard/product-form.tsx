@@ -42,6 +42,7 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 import { ProductGroup, ProductVariant, PriceTier, InventoryLot, ProductCategory, StoreSettings } from '@/lib/types';
 import { CustomDialog } from './custom-dialog';
 import { UnsavedChangesDialog } from './unsaved-changes-dialog';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 import { getProductCategories } from '@/app/actions';
 import {
   AlertDialog,
@@ -549,27 +550,33 @@ const MultiVariantFields = ({ form, isEditMode, onVariantAction, defaultTaxRate,
         replaceVariants(newVariants);
     };
 
-    const handleFileChange = (event: ChangeEvent<HTMLInputElement>, index: number) => {
+    const { uploadImage, deleteImage } = useUploadImage();
+
+    const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, index: number) => {
         if (readOnly) return;
         const files = event.target.files;
         if (files) {
-          Array.from(files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = (e) => { 
-              if(e.target?.result) { 
+            toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
+            try {
+                const newUrls = await Promise.all(
+                    Array.from(files).map(file => uploadImage(file, 'products'))
+                );
                 const currentImages = getValues(`multiVariants.${index}.imageUrls`) || [];
-                setValue(`multiVariants.${index}.imageUrls`, [...currentImages, e.target.result as string], { shouldValidate: true, shouldDirty: true }); 
-              } 
-            };
-            reader.readAsDataURL(file);
-          });
+                setValue(`multiVariants.${index}.imageUrls`, [...currentImages, ...newUrls], { shouldValidate: true, shouldDirty: true });
+                toast({ title: 'อัปโหลดสำเร็จ', description: 'อัปโหลดรูปภาพเรียบร้อยแล้ว' });
+            } catch (error) {
+                console.error("Image upload failed:", error);
+                toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ โปรดตรวจสอบว่าเปิดใช้งาน Storage แล้ว' });
+            }
         }
     };
     
     const handleRemoveImage = (vIndex: number, iIndex: number) => {
         if (readOnly) return;
         const current = getValues(`multiVariants.${vIndex}.imageUrls`) || [];
+        const removedUrl = current[iIndex];
         setValue(`multiVariants.${vIndex}.imageUrls`, current.filter((_, i) => i !== iIndex), { shouldValidate: true, shouldDirty: true });
+        if (removedUrl) deleteImage(removedUrl);
     };
 
     const activeVariantsCount = variantFields.filter(v => v.status !== 'archived').length;
@@ -707,7 +714,8 @@ export function ProductForm({ initialData, readOnly }: ProductFormProps) {
   const [allProductCategories, setAllProductCategories] = useState<ProductCategory[]>([]);
   const [areCategoriesLoading, setAreCategoriesLoading] = useState(true);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
-
+  const { uploadImage, deleteImage } = useUploadImage();
+  
   const settingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'store') : null, [firestore]);
   const { data: storeSettings } = useDoc<StoreSettings>(settingsRef);
   const defaultTaxRate = storeSettings?.defaultTaxRate ?? 7;
@@ -867,7 +875,11 @@ export function ProductForm({ initialData, readOnly }: ProductFormProps) {
                                 variant="destructive" 
                                 size="icon" 
                                 className="absolute -top-2 -right-2 h-6 w-6" 
-                                onClick={() => setValue('singleVariant.imageUrls', field.value.filter((_: any, idx: number) => idx !== i), { shouldDirty: true })}
+                                onClick={() => {
+                                  const removedUrl = field.value[i];
+                                  setValue('singleVariant.imageUrls', field.value.filter((_: any, idx: number) => idx !== i), { shouldDirty: true });
+                                  if (removedUrl) deleteImage(removedUrl);
+                                }}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
@@ -883,18 +895,23 @@ export function ProductForm({ initialData, readOnly }: ProductFormProps) {
                               multiple 
                               accept="image/*" 
                               className="hidden" 
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const f = e.target.files;
                                 if (f) {
-                                  Array.from(f).forEach(file => {
-                                    const r = new FileReader();
-                                    r.onload = (ev) => {
-                                      const currentImages = getValues('singleVariant.imageUrls') || [];
-                                      setValue('singleVariant.imageUrls', [...currentImages, ev.target?.result as string], { shouldDirty: true });
-                                    };
-                                    r.readAsDataURL(file);
-                                  });
+                                  toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
+                                  try {
+                                    const newUrls = await Promise.all(
+                                      Array.from(f).map(file => uploadImage(file, 'products'))
+                                    );
+                                    const currentImages = getValues('singleVariant.imageUrls') || [];
+                                    setValue('singleVariant.imageUrls', [...currentImages, ...newUrls], { shouldDirty: true });
+                                    toast({ title: 'อัปโหลดสำเร็จ', description: 'อัปโหลดรูปภาพเรียบร้อยแล้ว' });
+                                  } catch (error) {
+                                    console.error("Image upload failed:", error);
+                                    toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพโปรดตรวจสอบว่าเปิดใช้งาน Storage แล้ว' });
+                                  }
                                 }
+                                e.target.value = '';
                               }} 
                             />
                           </Label>

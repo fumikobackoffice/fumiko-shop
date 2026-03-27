@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { CustomDialog } from './custom-dialog';
 import { ImagePlaceholder } from '../shared/image-placeholder';
 import { UnsavedChangesDialog } from './unsaved-changes-dialog';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 import { Label } from '../ui/label';
 import { Separator } from '../ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -232,36 +233,35 @@ export function PackageForm({ initialData, readOnly }: PackageFormProps) {
   const savings = totalRetailPrice > 0 ? totalRetailPrice - packagePrice : 0;
   const isPriceInvalid = packagePrice > totalRetailPrice && totalRetailPrice > 0;
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const { uploadImage, deleteImage } = useUploadImage();
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     if (readOnly) return;
     const files = event.target.files;
     if (files) {
-      const currentImages = watch('imageUrls') || [];
-      const newImages = [...currentImages];
-      
-      Array.from(files).forEach(file => {
-        if (file.size > 1024 * 1024) {
-          toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: `รูป ${file.name} มีขนาดเกิน 1MB` });
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          if(e.target?.result) {
-            newImages.push(e.target.result as string);
-            setValue('imageUrls', newImages, { shouldValidate: true, shouldDirty: true });
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
+      try {
+          const newUrls = await Promise.all(
+              Array.from(files).map(file => uploadImage(file, 'packages'))
+          );
+          const currentImages = watch('imageUrls') || [];
+          setValue('imageUrls', [...currentImages, ...newUrls], { shouldValidate: true, shouldDirty: true });
+          toast({ title: 'อัปโหลดสำเร็จ', description: 'อัปโหลดรูปภาพแพ็กเกจแล้ว' });
+      } catch (error) {
+          console.error("Package image upload failed:", error);
+          toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ โปรดตรวจสอบว่าเปิดใช้งาน Storage แล้ว' });
+      }
     }
   };
 
   const handleRemoveImage = (index: number) => {
     if (readOnly) return;
     const currentImages = watch('imageUrls') || [];
+    const removedUrl = currentImages[index];
     const newImages = currentImages.filter((_, i) => i !== index);
     setValue('imageUrls', newImages, { shouldValidate: true, shouldDirty: true });
     if (imageInputRef.current) imageInputRef.current.value = '';
+    if (removedUrl) deleteImage(removedUrl);
   };
 
 

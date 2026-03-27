@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { CustomDialog } from '@/components/dashboard/custom-dialog';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 function CountdownTimer({ expiryTimestamp, onExpiry }: { expiryTimestamp: any, onExpiry: () => void }) {
   const [timeLeft, setTimeLeft] = useState('');
@@ -97,6 +98,8 @@ function PaymentPageContents({ orderId }: { orderId: string }) {
     const [isExpired, setIsExpired] = useState(false);
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+    
+    const { uploadImage } = useUploadImage();
 
     const executeOrderCancellation = useCallback(async (isAutoExpiry: boolean = false) => {
         if (!firestore || !order || order.status !== 'PENDING_PAYMENT' || isSubmitting) {
@@ -265,20 +268,16 @@ function PaymentPageContents({ orderId }: { orderId: string }) {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            if (file.size > 700 * 1024) { 
+            if (file.size > 5 * 1024 * 1024) { 
                 toast({ 
                     variant: 'destructive', 
                     title: 'ไฟล์มีขนาดใหญ่เกินไป', 
-                    description: 'กรุณาเลือกไฟล์ที่มีขนาดไม่เกิน 700KB เพื่อให้ระบบสามารถบันทึกข้อมูลได้' 
+                    description: 'กรุณาเลือกไฟล์ที่มีขนาดไม่เกิน 5MB' 
                 });
                 return;
             }
             setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreviewUrl(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+            setPreviewUrl(URL.createObjectURL(file));
         }
     };
     
@@ -290,7 +289,7 @@ function PaymentPageContents({ orderId }: { orderId: string }) {
     }
 
     const handleUploadAndSubmit = async () => {
-        if (!selectedFile || !previewUrl) {
+        if (!selectedFile) {
             toast({ variant: 'destructive', title: 'กรุณาเลือกไฟล์สลิป' });
             return;
         }
@@ -302,8 +301,9 @@ function PaymentPageContents({ orderId }: { orderId: string }) {
 
         setIsUploading(true);
         try {
+            const url = await uploadImage(selectedFile, `payments/${order.id}`);
             await updateDoc(orderRef, {
-                paymentSlipUrl: previewUrl,
+                paymentSlipUrl: url,
                 status: 'PROCESSING',
                 isNew: true,
                 updatedAt: serverTimestamp(),
@@ -316,9 +316,7 @@ function PaymentPageContents({ orderId }: { orderId: string }) {
             toast({ 
                 variant: 'destructive', 
                 title: 'การส่งข้อมูลล้มเหลว', 
-                description: err.message?.includes('too large') 
-                    ? 'ขนาดไฟล์ใหญ่เกินขีดจำกัดของระบบ กรุณาลดขนาดรูปภาพแล้วลองใหม่อีกครั้ง' 
-                    : (err.message || 'กรุณาลองใหม่อีกครั้ง') 
+                description: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ หรือบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง' 
             });
         } finally {
             setIsUploading(false);

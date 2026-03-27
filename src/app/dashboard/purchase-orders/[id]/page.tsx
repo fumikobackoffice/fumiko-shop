@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 const getStatusVariant = (status: PurchaseOrder['status']): "success" | "info" | "warning" | "destructive" | "outline" => {
   switch (status) {
@@ -87,6 +88,8 @@ export default function ViewPurchaseOrderPage() {
   const [tempAdditionalImages, setTempAdditionalImages] = useState<string[]>([]);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  
+  const { uploadImage, deleteImage } = useUploadImage('procurement');
 
   // Granular Permission Check
   const canViewInventory = useMemo(() => {
@@ -139,36 +142,47 @@ export default function ViewPurchaseOrderPage() {
     setIsConfirmOpen(true);
   }
 
-  const handleSlipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSlipFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Adjusted limit to 700KB because Base64 overhead adds ~33%
-      if (file.size > 700 * 1024) {
-        toast({ variant: 'destructive', title: 'ไฟล์มีขนาดใหญ่เกินไป', description: 'กรุณาเลือกไฟล์ที่มีขนาดไม่เกิน 700KB เพื่อป้องกันฐานข้อมูลเต็ม' });
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ variant: 'destructive', title: 'ไฟล์มีขนาดใหญ่เกินไป', description: 'กรุณาเลือกไฟล์ที่มีขนาดไม่เกิน 5MB' });
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (ev) => setTempSlipUrl(ev.target?.result as string);
-      reader.readAsDataURL(file);
+      toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
+      try {
+        const url = await uploadImage(file);
+        setTempSlipUrl(url);
+        toast({ title: 'อัปโหลดสำเร็จ' });
+      } catch (error) {
+        console.error("Upload error:", error);
+        toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว' });
+      }
     }
   };
 
-  const handleAdditionalFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAdditionalFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      Array.from(files).forEach(file => {
-        if (file.size > 700 * 1024) {
-          toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: `รูป ${file.name} มีขนาดเกิน 700KB` });
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          if (ev.target?.result) {
-            setTempAdditionalImages(prev => [...prev, ev.target?.result as string]);
+      toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
+      try {
+        const uploadPromises = Array.from(files).map(async (file) => {
+          if (file.size > 5 * 1024 * 1024) {
+            toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: `รูป ${file.name} มีขนาดเกิน 5MB` });
+            return null;
           }
-        };
-        reader.readAsDataURL(file);
-      });
+          return uploadImage(file);
+        });
+        const urls = await Promise.all(uploadPromises);
+        const validUrls = urls.filter(Boolean) as string[];
+        if (validUrls.length > 0) {
+          setTempAdditionalImages(prev => [...prev, ...validUrls]);
+          toast({ title: 'อัปโหลดรวมสำเร็จ' });
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+        toast({ variant: 'destructive', title: 'บางไฟล์อัปโหลดล้มเหลว' });
+      }
     }
   };
 
@@ -414,7 +428,7 @@ export default function ViewPurchaseOrderPage() {
                     <DollarSign className="h-4 w-4 text-emerald-600" /> หลักฐานการชำระเงิน
                   </CardTitle>
                   {!isReadOnly && tempSlipUrl && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setTempSlipUrl(null)}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => { if (tempSlipUrl) deleteImage(tempSlipUrl); setTempSlipUrl(null); }}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
@@ -494,7 +508,7 @@ export default function ViewPurchaseOrderPage() {
                       {!isReadOnly && (
                         <button 
                           className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => setTempAdditionalImages(prev => prev.filter((_, idx) => idx !== i))}
+                          onClick={() => { const removedUrl = tempAdditionalImages[i]; setTempAdditionalImages(prev => prev.filter((_, idx) => idx !== i)); if (removedUrl) deleteImage(removedUrl); }}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -578,7 +592,7 @@ export default function ViewPurchaseOrderPage() {
               ) : (
                 <div className="relative w-full aspect-[9/16] rounded-xl overflow-hidden border bg-black/5 max-w-[180px] mx-auto group">
                   <Image src={tempSlipUrl} alt="Preview Slip" fill className="object-contain" />
-                  <button className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1" onClick={() => setTempSlipUrl(null)}><X className="h-4 w-4" /></button>
+                  <button className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1" onClick={() => { if (tempSlipUrl) deleteImage(tempSlipUrl); setTempSlipUrl(null); }}><X className="h-4 w-4" /></button>
                 </div>
               )}
             </div>

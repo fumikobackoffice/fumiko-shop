@@ -11,6 +11,7 @@ import { Upload, Loader2, Copy, CheckCircle2, AlertCircle, XCircle } from 'lucid
 import Image from 'next/image';
 import { Skeleton } from '../ui/skeleton';
 import { cn } from '@/lib/utils';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 export function FeePaymentDialog({ invoice, onClose }: { invoice: FeeInvoice | null, onClose: () => void }) {
   const firestore = useFirestore();
@@ -29,16 +30,18 @@ export function FeePaymentDialog({ invoice, onClose }: { invoice: FeeInvoice | n
     if (!invoice) setPreviewUrl(null);
   }, [invoice]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { uploadImage, deleteImage } = useUploadImage();
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 700 * 1024) {
-        toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: 'กรุณาใช้รูปไม่เกิน 700KB' });
-        return;
+      toast({ title: 'กำลังอัปโหลดสลิป...', description: 'กรุณารอสักครู่' });
+      try {
+          const url = await uploadImage(file, 'slips');
+          setPreviewUrl(url);
+          toast({ title: 'อัปโหลดสำเร็จ' });
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'อัปโหลดสลิปไม่สำเร็จ' });
       }
-      const reader = new FileReader();
-      reader.onload = (ev) => setPreviewUrl(ev.target?.result as string);
-      reader.readAsDataURL(file);
     }
   };
 
@@ -131,7 +134,7 @@ export function FeePaymentDialog({ invoice, onClose }: { invoice: FeeInvoice | n
                     variant="destructive" 
                     size="icon" 
                     className="absolute top-2 right-2 h-8 w-8 rounded-full shadow-lg" 
-                    onClick={() => setPreviewUrl(null)}
+                    onClick={() => { if (previewUrl) deleteImage(previewUrl); setPreviewUrl(null); }}
                   >
                     <XCircle className="h-5 w-5" />
                   </Button>

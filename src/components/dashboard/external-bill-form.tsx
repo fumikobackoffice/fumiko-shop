@@ -72,6 +72,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
 import { format, getDaysInMonth } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 /**
  * คอมโพเนนต์เลือกวันที่แบบดรอปดาวน์ (ห้ามอนาคต)
@@ -328,16 +329,18 @@ export function ExternalBillForm({ adminUser }: { adminUser: AppUser }) {
     return { subtotal, taxAmount, grandTotal, balanceAmount };
   }, [watch(), storeSettings]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const { uploadImage, deleteImage } = useUploadImage();
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 700 * 1024) {
-        toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: 'กรุณาใช้รูปไม่เกิน 700KB' });
-        return;
+      toast({ title: 'กำลังอัปโหลดสลิป...', description: 'กรุณารอสักครู่' });
+      try {
+          const url = await uploadImage(file, 'slips');
+          setSlipPreview(url);
+          toast({ title: 'อัปโหลดสำเร็จ' });
+      } catch (error) {
+          toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'อัปโหลดสลิปไม่สำเร็จ' });
       }
-      const reader = new FileReader();
-      reader.onload = (ev) => setSlipPreview(ev.target?.result as string);
-      reader.readAsDataURL(file);
     }
   };
 
@@ -564,7 +567,7 @@ export function ExternalBillForm({ adminUser }: { adminUser: AppUser }) {
                 ) : (
                   <div className="relative w-full aspect-[9/16] rounded-xl overflow-hidden border bg-black/5 max-w-[180px] mx-auto group">
                     <Image src={slipPreview} alt="Preview Slip" fill className="object-contain" />
-                    <button className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1" onClick={() => setSlipPreview(null)}><X className="h-4 w-4" /></button>
+                    <button className="absolute top-2 right-2 bg-destructive text-white rounded-full p-1" onClick={() => { if (slipPreview) deleteImage(slipPreview); setSlipPreview(null); }}><X className="h-4 w-4" /></button>
                   </div>
                 )}
               </CardContent>

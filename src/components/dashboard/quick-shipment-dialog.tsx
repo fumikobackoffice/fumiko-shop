@@ -16,6 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { Separator } from '../ui/separator';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 interface QuickShipmentDialogProps {
   order: Order | null;
@@ -56,24 +57,28 @@ export function QuickShipmentDialog({ order, onClose, adminUser, onSuccess }: Qu
 
   const handleRemoveShipment = (id: string) => setShipments(prev => prev.filter(s => s.id !== id));
 
-  const handleProofImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const { uploadImage, deleteImage } = useUploadImage();
+  const handleProofImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
     
-    Array.from(files).forEach(file => {
-      if (file.size > 700 * 1024) {
-        toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: `รูป ${file.name} มีขนาดเกิน 700KB` });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setShipmentProofImages(prev => [...prev, e.target?.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
+    toast({ title: 'กำลังอัปโหลดหลักฐาน...', description: 'กรุณารอสักครู่' });
+    try {
+        const newUrls = await Promise.all(
+            Array.from(files).map(file => uploadImage(file, 'shipments'))
+        );
+        setShipmentProofImages(prev => [...prev, ...newUrls]);
+        toast({ title: 'อัปโหลดรูปสำเร็จ' });
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'อัปโหลดผิดพลาด', description: 'ไม่สามารถอัปโหลดรูปภาพได้' });
+    }
   };
 
-  const handleRemoveProofImage = (index: number) => setShipmentProofImages(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveProofImage = (index: number) => {
+    const removedUrl = shipmentProofImages[index];
+    setShipmentProofImages(prev => prev.filter((_, i) => i !== index));
+    if (removedUrl) deleteImage(removedUrl);
+  };
 
   const handleSave = () => {
     if (!firestore || !adminUser) return;

@@ -45,6 +45,7 @@ import { ProvinceCombobox } from './province-combobox';
 import { CountryCombobox } from './country-combobox';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 /**
  * คอมโพเนนต์เลือกวันที่แบบดรอปดาวน์แยกส่วน (วัน/เดือน/ปี)
@@ -273,20 +274,29 @@ export function UserForm({ initialData, sideContent }: UserFormProps) {
     }
   }, [initialData, reset, isStaffFlow, isSellerFlow, setValue, isEditMode]);
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>, fieldName: 'nationalIdCardUrl' | 'faceImageUrl') => {
+  const { uploadImage, deleteImage } = useUploadImage();
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>, fieldName: 'nationalIdCardUrl' | 'faceImageUrl') => {
     if (isReadOnly) return;
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => setValue(fieldName, e.target?.result as string, { shouldValidate: true, shouldDirty: true });
-      reader.readAsDataURL(file);
+      toast({ title: 'กำลังอัปโหลดไฟล์...', description: 'กรุณารอสักครู่' });
+      try {
+          const url = await uploadImage(file, `users/${fieldName}`);
+          setValue(fieldName, url, { shouldValidate: true, shouldDirty: true });
+          toast({ title: 'อัปโหลดสำเร็จ' });
+      } catch (error) {
+          console.error("User document upload failed:", error);
+          toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'โปรดตรวจสอบว่าเปิดใช้งาน Storage แล้ว' });
+      }
     }
   };
   
   const handleRemoveImage = (fieldName: 'nationalIdCardUrl' | 'faceImageUrl', inputRef: RefObject<HTMLInputElement>) => {
     if (isReadOnly) return;
+    const removedUrl = form.getValues(fieldName);
     setValue(fieldName, '', { shouldValidate: true, shouldDirty: true });
     if (inputRef.current) inputRef.current.value = '';
+    if (removedUrl) deleteImage(removedUrl);
   };
 
   const handlePositionChange = (positionId: string) => {

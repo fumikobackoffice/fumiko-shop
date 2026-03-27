@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 const NumericInput = ({ value, onChange, onBlur: rhfOnBlur, isDecimal = true, ...props }: { value: string | number | null | undefined, onChange: (val: string) => void, onBlur: (e: any) => void, isDecimal?: boolean, [key: string]: any }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -165,6 +166,7 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [nextPath, setNextPath] = useState<string | null>(null);
   const [isEditingFrequency, setIsEditingFrequency] = useState(false);
+  const { uploadImage, deleteImage } = useUploadImage();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -250,7 +252,7 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
     setShowUnsavedDialog(false);
   };
 
-  const handleAnnouncementImage = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleAnnouncementImage = async (e: ChangeEvent<HTMLInputElement>) => {
     if (readOnly) return;
     const file = e.target.files?.[0];
     if (file) {
@@ -258,9 +260,15 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
         toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: 'กรุณาใช้รูปภาพขนาดไม่เกิน 1MB' });
         return;
       }
-      const reader = new FileReader();
-      reader.onload = () => { setValue('announcement.imageUrl', reader.result as string, { shouldDirty: true }); };
-      reader.readAsDataURL(file);
+      toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
+      try {
+        const url = await uploadImage(file, 'settings');
+        setValue('announcement.imageUrl', url, { shouldDirty: true });
+        toast({ title: 'อัปโหลดสำเร็จ', description: 'อัปโหลดรูปภาพพร้อมใช้งานแล้ว' });
+      } catch (error) {
+        console.error("Upload error:", error);
+        toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ' });
+      }
     }
   };
 
@@ -372,7 +380,7 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
                     <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted/20 flex items-center justify-center group">
                       <img src={watch('announcement.imageUrl')} alt="Announcement" className="h-full w-full object-contain" />
                       {!readOnly && (
-                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setValue('announcement.imageUrl', '', { shouldDirty: true })}><X className="h-4 w-4" /></Button>
+                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => { const removedUrl = watch('announcement.imageUrl'); setValue('announcement.imageUrl', '', { shouldDirty: true }); if (removedUrl) deleteImage(removedUrl); }}><X className="h-4 w-4" /></Button>
                       )}
                     </div>
                   ) : (

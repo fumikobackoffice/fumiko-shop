@@ -17,7 +17,8 @@ function initializeFirebaseAdmin() {
             const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
             if (admin.apps.length === 0) {
                 admin.initializeApp({
-                    credential: admin.credential.cert(serviceAccount)
+                    credential: admin.credential.cert(serviceAccount),
+                    storageBucket: "studio-9987050233-af300.firebasestorage.app"
                 });
             }
             adminDb = getFirestore();
@@ -40,7 +41,8 @@ function initializeFirebaseAdmin() {
 
         if (admin.apps.length === 0) {
             admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount)
+                credential: admin.credential.cert(serviceAccount),
+                storageBucket: "studio-9987050233-af300.firebasestorage.app"
             });
         }
         

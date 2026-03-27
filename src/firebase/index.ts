@@ -4,12 +4,13 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-
+import { getStorage } from 'firebase/storage';
 // Use a global variable to cache SDK instances across HMR (Hot Module Replacement)
 let cachedSdks: {
   firebaseApp: FirebaseApp;
   firestore: any;
   auth: any;
+  storage: any;
 } | null = null;
 
 export function initializeFirebase() {
@@ -37,11 +38,13 @@ export function initializeFirebase() {
   // This helps prevent "Unexpected state" errors during Fast Refresh.
   const firestore = getFirestore(firebaseApp);
   const auth = getAuth(firebaseApp);
+  const storage = getStorage(firebaseApp);
 
   cachedSdks = {
     firebaseApp,
     firestore,
     auth,
+    storage,
   };
 
   return cachedSdks;
@@ -52,6 +55,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
     firebaseApp,
     firestore: getFirestore(firebaseApp),
     auth: getAuth(firebaseApp),
+    storage: getStorage(firebaseApp),
   };
 }
 

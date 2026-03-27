@@ -38,6 +38,7 @@ import { Separator } from '../ui/separator';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 const numericStringSchema = z.preprocess(
   (val) => {
@@ -133,6 +134,21 @@ export function ServiceForm({ initialData, readOnly }: { initialData?: Service, 
   const taxStatusValue = watch('taxStatus');
   const catAValue = watch('categoryA');
   const catBValue = watch('categoryB');
+  const { uploadImage, deleteImage } = useUploadImage();
+
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const f=e.target.files; 
+    if(f){
+        toast({ title: 'กำลังอัปโหลด...', description: 'กรุณารอสักครู่' });
+        try {
+            const newUrls = await Promise.all(Array.from(f).map(file => uploadImage(file, 'services')));
+            setValue('imageUrls', [...(watch('imageUrls') || []), ...newUrls], {shouldDirty:true});
+            toast({ title: 'อัปโหลดสำเร็จ' });
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'ผิดพลาด', description: 'อัปโหลดรูปไม่สำเร็จ' });
+        }
+    }
+  };
 
   const parentA = useMemo(() => categories.find(p => p.code === catAValue && p.level === 'A'), [categories, catAValue]);
   const parentB = useMemo(() => categories.find(p => p.code === catBValue && p.level === 'B' && p.parentId === parentA?.id), [categories, catBValue, parentA]);
@@ -210,10 +226,10 @@ export function ServiceForm({ initialData, readOnly }: { initialData?: Service, 
                   <FormLabel className="mb-2 block">รูปภาพ</FormLabel>
                   <div className="grid grid-cols-4 gap-4">
                     {watch('imageUrls')?.map((url, i) => (
-                      <div key={i} className="relative aspect-square rounded-md border overflow-hidden"><img src={url} className="h-full w-full object-cover" alt="Service" />{!readOnly && <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setValue('imageUrls', watch('imageUrls').filter((_, idx) => idx !== i), { shouldDirty: true })}><X className="h-4 w-4" /></Button>}</div>
+                      <div key={i} className="relative aspect-square rounded-md border overflow-hidden"><img src={url} className="h-full w-full object-cover" alt="Service" />{!readOnly && <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => { const removedUrl = url; setValue('imageUrls', watch('imageUrls').filter((_, idx) => idx !== i), { shouldDirty: true }); if (removedUrl) deleteImage(removedUrl); }}><X className="h-4 w-4" /></Button>}</div>
                     ))}
                     {!readOnly && (
-                      <Label htmlFor="img-up" className="aspect-square flex flex-col items-center justify-center border-2 border-dashed rounded-md cursor-pointer hover:bg-accent/50"><ImagePlus className="h-8 w-8 text-muted-foreground" /><Input id="img-up" type="file" multiple accept="image/*" className="hidden" onChange={(e)=>{const f=e.target.files; if(f){const cur=watch('imageUrls')||[]; Array.from(f).forEach(file=>{const r=new FileReader(); r.onload=(ev)=>setValue('imageUrls', [...watch('imageUrls'), ev.target?.result as string], {shouldDirty:true}); r.readAsDataURL(file);})}}}/></Label>
+                      <Label htmlFor="img-up" className="aspect-square flex flex-col items-center justify-center border-2 border-dashed rounded-md cursor-pointer hover:bg-accent/50"><ImagePlus className="h-8 w-8 text-muted-foreground" /><Input id="img-up" type="file" multiple accept="image/*" className="hidden" onChange={handleImageUpload}/></Label>
                     )}
                   </div>
                 </div>

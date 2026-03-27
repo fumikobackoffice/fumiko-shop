@@ -48,6 +48,7 @@ import { syncRecurringInvoices } from '@/app/actions';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '../ui/progress';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { useUploadImage } from '@/firebase/storage/use-storage';
 
 const NumericInput = ({ value, onChange, onBlur: rhfOnBlur, isDecimal = true, ...props }: { value: string | number | null | undefined, onChange: (val: string) => void, onBlur: (e: any) => void, isDecimal?: boolean, [key: string]: any }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -387,17 +388,21 @@ export function BranchForm({ initialData, readOnly }: { initialData?: Branch, re
     return () => { window.removeEventListener('beforeunload', handleBeforeUnload); document.querySelectorAll('a').forEach(a => a.removeEventListener('click', handleAnchorClick)); };
   }, [isDirty, isSubmitting, readOnly]);
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const { uploadImage, deleteImage } = useUploadImage();
+
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (readOnly) return;
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 1024 * 1024) {
-        toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: 'กรุณาใช้รูปภาพขนาดไม่เกิน 1MB' });
-        return;
+      toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
+      try {
+          const url = await uploadImage(file, 'branches');
+          setValue('imageUrl', url, { shouldDirty: true });
+          toast({ title: 'อัปโหลดสำเร็จ', description: 'อัปโหลดรูปร้านเรียบร้อยแล้ว' });
+      } catch (error) {
+          console.error("Branch image upload failed:", error);
+          toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'โปรดตรวจสอบว่าเปิดใช้งาน Storage แล้ว' });
       }
-      const reader = new FileReader();
-      reader.onload = () => { setValue('imageUrl', reader.result as string, { shouldDirty: true }); };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -674,7 +679,7 @@ export function BranchForm({ initialData, readOnly }: { initialData?: Branch, re
               </CardContent>
             </Card>
 
-            <Card><CardHeader><CardTitle>รูปภาพสาขา</CardTitle></CardHeader><CardContent><div className="space-y-4">{watch('imageUrl') ? (<div className="relative aspect-video w-full overflow-hidden rounded-lg border"><img src={watch('imageUrl')} alt="Branch preview" className="h-full w-full object-cover" />{!readOnly && (<Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full" onClick={() => form.setValue('imageUrl', '', { shouldDirty: true })}><X className="h-4 w-4" /></Button>)}</div>) : (<Label htmlFor="branch-image-upload" className={cn("flex aspect-video w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/25 transition-colors", readOnly ? "cursor-not-allowed opacity-50" : "hover:bg-muted/50")}><ImagePlus className="mb-2 h-10 w-10 text-muted-foreground opacity-40" /><span className="text-sm font-medium text-muted-foreground">อัปโหลดรูปภาพ</span>{!readOnly && <Input id="branch-image-upload" type="file" accept="image/*" className="sr-only" onChange={handleImageUpload} />}</Label>)}</div></CardContent></Card>
+            <Card><CardHeader><CardTitle>รูปภาพสาขา</CardTitle></CardHeader><CardContent><div className="space-y-4">{watch('imageUrl') ? (<div className="relative aspect-video w-full overflow-hidden rounded-lg border"><img src={watch('imageUrl')} alt="Branch preview" className="h-full w-full object-cover" />{!readOnly && (<Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full" onClick={() => { const removedUrl = form.getValues('imageUrl'); form.setValue('imageUrl', '', { shouldDirty: true }); if (removedUrl) deleteImage(removedUrl); }}><X className="h-4 w-4" /></Button>)}</div>) : (<Label htmlFor="branch-image-upload" className={cn("flex aspect-video w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/25 transition-colors", readOnly ? "cursor-not-allowed opacity-50" : "hover:bg-muted/50")}><ImagePlus className="mb-2 h-10 w-10 text-muted-foreground opacity-40" /><span className="text-sm font-medium text-muted-foreground">อัปโหลดรูปภาพ</span>{!readOnly && <Input id="branch-image-upload" type="file" accept="image/*" className="sr-only" onChange={handleImageUpload} />}</Label>)}</div></CardContent></Card>
           </div>
         </div>
         <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => router.back()}>{readOnly ? 'ปิดหน้าต่าง' : 'ยกเลิก'}</Button>{!readOnly && (<Button type="submit" size="lg" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {isEditMode ? 'บันทึกการเปลี่ยนแปลงทั้งหมด' : 'สร้างสาขา'}</Button>)}</div>
