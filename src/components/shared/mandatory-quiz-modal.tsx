@@ -8,7 +8,7 @@ import { StoreSettings, TargetedAnnouncement } from '@/lib/types';
 import { regions } from '@/lib/provinces';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, X, Search, FileSignature, Info } from 'lucide-react';
+import { CheckCircle2, X, Search, FileSignature, Info, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,8 @@ type UnifiedTask = {
   title: string;
   content?: string;
   imageUrl?: string;
+  linkUrl?: string;
+  linkLabel?: string;
   quizQuestions?: any[];
   version: string | number;
 };
@@ -93,6 +95,8 @@ export function MandatoryQuizModal() {
               title: ta.title,
               content: ta.content,
               imageUrl: ta.imageUrl,
+              linkUrl: ta.linkUrl,
+              linkLabel: ta.linkLabel,
               version
             });
           }
@@ -291,7 +295,20 @@ export function MandatoryQuizModal() {
               )
             ) : (
               // Targeted Announcement UI (Simple Acknowledge)
-              <div className="flex flex-col w-full space-y-4">
+              <div className="flex flex-col w-full gap-3">
+                {currentTask.linkUrl && (
+                  <a
+                    href={currentTask.linkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full"
+                  >
+                    <Button variant="outline" className="w-full h-11 font-semibold border-primary text-primary hover:bg-primary/10 gap-2">
+                      <ExternalLink className="h-4 w-4" />
+                      {currentTask.linkLabel || 'ดูรายละเอียดเพิ่มเติม'}
+                    </Button>
+                  </a>
+                )}
                 <Button onClick={handleActionClick} className="w-full font-bold h-12 text-base shadow-sm">
                   <CheckCircle2 className="mr-2 h-5 w-5" />
                   ฉันได้อ่าน และรับทราบข้อมูลแล้ว

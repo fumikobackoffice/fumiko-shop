@@ -19,7 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ImagePlus, X, Search } from 'lucide-react';
+import { Loader2, ImagePlus, X, Search, Link } from 'lucide-react';
 import Image from 'next/image';
 import { useUploadImage } from '@/firebase/storage/use-storage';
 
@@ -27,6 +27,8 @@ const formSchema = z.object({
   title: z.string().min(1, 'ระบุหัวข้อประกาศ'),
   content: z.string().optional(),
   imageUrl: z.string().optional(),
+  linkUrl: z.string().url({ message: 'รูปแบบลิงก์ไม่ถูกต้อง (ต้องเริ่มด้วย https://)' }).optional().or(z.literal('')),
+  linkLabel: z.string().optional(),
   active: z.boolean().default(true),
   targetType: z.enum(['ALL_SELLERS', 'BY_PROVINCE', 'BY_REGION', 'SPECIFIC_USERS']),
   targetProvinces: z.array(z.string()).optional(),
@@ -64,6 +66,8 @@ export function TargetedAnnouncementDialog({
       targetProvinces: announcement?.targetProvinces || [],
       targetRegions: announcement?.targetRegions || [],
       targetUserIds: announcement?.targetUserIds || [],
+      linkUrl: announcement?.linkUrl || '',
+      linkLabel: announcement?.linkLabel || '',
     }
   });
 
@@ -162,6 +166,8 @@ export function TargetedAnnouncementDialog({
         targetProvinces: values.targetType === 'BY_PROVINCE' ? values.targetProvinces : [],
         targetRegions: values.targetType === 'BY_REGION' ? values.targetRegions : [],
         targetUserIds: values.targetType === 'SPECIFIC_USERS' ? values.targetUserIds : [],
+        linkUrl: values.linkUrl || '',
+        linkLabel: values.linkLabel || '',
         updatedAt: serverTimestamp(),
         // Only set createdAt for new items
         createdAt: announcement?.createdAt || serverTimestamp(),
@@ -215,6 +221,27 @@ export function TargetedAnnouncementDialog({
                     <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                   </FormItem>
                 )} />
+
+                {/* Link fields */}
+                <div className="rounded-lg border border-dashed p-4 space-y-3 bg-muted/20">
+                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Link className="h-3.5 w-3.5" /> ลิงก์แนบ (ไม่บังคับ)</p>
+                  <FormField control={form.control} name="linkUrl" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">URL ลิงก์ (ต้องเริ่มด้วย https://)</FormLabel>
+                      <FormControl><Input placeholder="https://example.com" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  {form.watch('linkUrl') && (
+                    <FormField control={form.control} name="linkLabel" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">ชื่อบนปุ่ม (ถ้าว่างจะใช้ค่าเริ่มต้น)</FormLabel>
+                        <FormControl><Input placeholder="เช่น: ดูรายละเอียดเพิ่มเติม" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                  )}
+                </div>
               </div>
 
               <div className="space-y-4">

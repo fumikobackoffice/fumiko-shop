@@ -616,6 +616,8 @@ export type TargetedAnnouncement = {
   title: string;
   content?: string;
   imageUrl?: string;
+  linkUrl?: string;
+  linkLabel?: string;
   active: boolean;
   targetType: TargetedAnnouncementTarget;
   targetProvinces?: string[]; 
