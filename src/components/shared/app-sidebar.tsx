@@ -36,7 +36,8 @@ import {
   FileText,
   UserPlus,
   History,
-  FilePlus
+  FilePlus,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
@@ -224,14 +225,24 @@ export function AppSidebar() {
               )}
 
               {hasPermission('customers', 'view') && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isActive('/dashboard/users')}>
-                    <Link href="/dashboard/users">
-                      <Users className="h-4 w-4" />
-                      <span>เจ้าของสาขา</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={isActive('/dashboard/users')}>
+                      <Link href="/dashboard/users">
+                        <Users className="h-4 w-4" />
+                        <span>เจ้าของสาขา</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={isActive('/dashboard/communications')}>
+                      <Link href="/dashboard/communications">
+                        <Megaphone className="h-4 w-4" />
+                        <span>ระบบประกาศสาขา</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
               )}
             </SidebarMenu>
           </SidebarGroupContent>

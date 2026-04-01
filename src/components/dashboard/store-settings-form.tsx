@@ -18,9 +18,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect, ChangeEvent, useMemo } from 'react';
-import { Loader2, PlusCircle, Trash2, Building2, Headset, Percent, Megaphone, ImagePlus, X, Pencil, Info } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Building2, Headset, Percent, Megaphone, ImagePlus, X, Pencil, Info, CheckCircle2 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { StoreSettings } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 import { UnsavedChangesDialog } from './unsaved-changes-dialog';
@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 import { useUploadImage } from '@/firebase/storage/use-storage';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const NumericInput = ({ value, onChange, onBlur: rhfOnBlur, isDecimal = true, ...props }: { value: string | number | null | undefined, onChange: (val: string) => void, onBlur: (e: any) => void, isDecimal?: boolean, [key: string]: any }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -100,15 +101,6 @@ const companyAddressSchema = z.object({
   phone: z.string().min(1, 'กรุณากรอกเบอร์โทรศัพท์'),
 });
 
-const announcementSchema = z.object({
-  active: z.boolean().default(false),
-  title: z.string().min(1, 'กรุณากรอกหัวข้อประกาศ'),
-  content: z.string().min(1, 'กรุณากรอกเนื้อหาประกาศ'),
-  imageUrl: z.string().optional(),
-  hasAckButton: z.boolean().default(true),
-  frequency: z.enum(['ONLY_ONCE', 'EVERY_LOGIN']).default('ONLY_ONCE'),
-});
-
 const formSchema = z.object({
   defaultShippingRates: shippingRatesSchema,
   provincialShippingRates: z.array(provincialShippingRateSchema).optional(),
@@ -118,7 +110,6 @@ const formSchema = z.object({
   companyAddress: companyAddressSchema.optional(),
   supportPhone: z.string().optional(),
   supportLineId: z.string().optional(),
-  announcement: announcementSchema.optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -140,14 +131,6 @@ const defaultFormValues: FormValues = {
   },
   supportPhone: '0657546699',
   supportLineId: '@fumiko_support',
-  announcement: {
-    active: false,
-    title: '',
-    content: '',
-    imageUrl: '',
-    hasAckButton: true,
-    frequency: 'ONLY_ONCE',
-  }
 };
 
 interface StoreSettingsFormProps {
@@ -165,8 +148,7 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
   
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [nextPath, setNextPath] = useState<string | null>(null);
-  const [isEditingFrequency, setIsEditingFrequency] = useState(false);
-  const { uploadImage, deleteImage } = useUploadImage();
+  const { deleteImage } = useUploadImage();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -179,10 +161,6 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
 
   useEffect(() => {
     if (initialData) {
-      const rawAnn = initialData.announcement;
-      const dbFreq = (rawAnn?.frequency as string);
-      const freqValue: 'ONLY_ONCE' | 'EVERY_LOGIN' = (dbFreq === 'EVERY_LOGIN') ? 'EVERY_LOGIN' : 'ONLY_ONCE';
-
       reset({
         defaultShippingRates: initialData.defaultShippingRates || defaultFormValues.defaultShippingRates,
         provincialShippingRates: initialData.provincialShippingRates || [],
@@ -192,31 +170,21 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
         companyAddress: initialData.companyAddress || defaultFormValues.companyAddress,
         supportPhone: initialData.supportPhone || '',
         supportLineId: initialData.supportLineId || '',
-        announcement: {
-          active: !!rawAnn?.active,
-          title: rawAnn?.title || '',
-          content: rawAnn?.content || '',
-          imageUrl: rawAnn?.imageUrl || '',
-          hasAckButton: rawAnn?.hasAckButton !== false,
-          frequency: freqValue,
-        },
       });
-      setIsEditingFrequency(false);
     }
   }, [initialData, reset]);
 
   const saveSettings = async (values: FormValues) => {
     if (!firestore || readOnly) return false;
     try {
-        const announcementUpdate = values.announcement ? { ...values.announcement, updatedAt: serverTimestamp() } : null;
+        const { dirtyFields } = form.formState;
+        
         const settingsRef = doc(firestore, 'settings', 'store');
-        await setDoc(settingsRef, { ...values, announcement: announcementUpdate }, { merge: true });
+        await setDoc(settingsRef, values, { merge: true });
         
         clearGlobalCache('store-settings-data');
         onRefresh();
         
-        toast({ title: "บันทึกการตั้งค่าแล้ว" });
-        setIsEditingFrequency(false);
         return true;
     } catch (error: any) {
         toast({ variant: 'destructive', title: "เกิดข้อผิดพลาด", description: error.message });
@@ -252,25 +220,7 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
     setShowUnsavedDialog(false);
   };
 
-  const handleAnnouncementImage = async (e: ChangeEvent<HTMLInputElement>) => {
-    if (readOnly) return;
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 1024 * 1024) {
-        toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป', description: 'กรุณาใช้รูปภาพขนาดไม่เกิน 1MB' });
-        return;
-      }
-      toast({ title: 'กำลังอัปโหลดรูปภาพ...', description: 'กรุณารอสักครู่' });
-      try {
-        const url = await uploadImage(file, 'settings');
-        setValue('announcement.imageUrl', url, { shouldDirty: true });
-        toast({ title: 'อัปโหลดสำเร็จ', description: 'อัปโหลดรูปภาพพร้อมใช้งานแล้ว' });
-      } catch (error) {
-        console.error("Upload error:", error);
-        toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว', description: 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ' });
-      }
-    }
-  };
+
 
   const selectedProvinces = watch('provincialShippingRates')?.map(r => r.province) || [];
 
@@ -286,114 +236,7 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card className="border-primary/20 shadow-md">
-            <CardHeader className="bg-primary/5 rounded-t-lg border-b border-primary/10">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="flex items-center gap-2"><Megaphone className="h-5 w-5 text-primary" />ระบบแจ้งประกาศสำหรับลูกค้า</CardTitle>
-                  <CardDescription>ตั้งค่าข้อความและรูปภาพที่จะแสดงให้เจ้าของสาขาเห็นเมื่อล็อกอิน</CardDescription>
-                </div>
-                <FormField name="announcement.active" control={form.control} render={({ field }) => (
-                  <FormItem className="flex items-center gap-2 space-y-0">
-                    <FormLabel className="text-sm font-bold">{field.value ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</FormLabel>
-                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={readOnly} /></FormControl>
-                  </FormItem>
-                )} />
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <FormField name="announcement.title" control={form.control} render={({ field }) => (
-                    <FormItem><FormLabel>หัวข้อประกาศ</FormLabel><FormControl><Input placeholder="เช่น ประกาศปรับปรุงระบบ" {...field} disabled={readOnly} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField name="announcement.content" control={form.control} render={({ field }) => (
-                    <FormItem><FormLabel>เนื้อหาประกาศ</FormLabel><FormControl><Textarea rows={6} placeholder="พิมพ์เนื้อหาประกาศที่นี่..." {...field} disabled={readOnly} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField name="announcement.frequency" control={form.control} render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ความถี่ในการแสดง</FormLabel>
-                        {!isEditingFrequency ? (
-                          <div className="flex items-center justify-between h-11 px-3 border rounded-md bg-muted/5 animate-in fade-in duration-300">
-                            <Badge variant="outline" className="h-6 px-3 text-xs font-bold bg-white dark:bg-background">
-                              {field.value === 'EVERY_LOGIN' ? 'แสดงทุกวัน' : 'แสดงครั้งเดียว'}
-                            </Badge>
-                            {!readOnly && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors"
-                                onClick={() => setIsEditingFrequency(true)}
-                                title="คลิกเพื่อแก้ไขความถี่"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 animate-in slide-in-from-right-2 duration-300">
-                            <div className="flex-1">
-                              <Select 
-                                onValueChange={field.onChange} 
-                                value={field.value || 'ONLY_ONCE'} 
-                                disabled={readOnly}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-11 border-primary/50">
-                                    <SelectValue placeholder="เลือกความถี่" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="ONLY_ONCE">แสดงครั้งเดียว</SelectItem>
-                                  <SelectItem value="EVERY_LOGIN">แสดงทุกวัน</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-11 w-11 shrink-0"
-                              onClick={() => setIsEditingFrequency(false)}
-                              title="ยกเลิกการแก้ไข"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField name="announcement.hasAckButton" control={form.control} render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 space-y-0">
-                        <div className="space-y-0.5"><FormLabel className="text-xs">ปุ่มรับทราบ</FormLabel></div>
-                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={readOnly} /></FormControl>
-                      </FormItem>
-                    )} />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <FormLabel>รูปภาพประกอบประกาศ</FormLabel>
-                  {watch('announcement.imageUrl') ? (
-                    <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted/20 flex items-center justify-center group">
-                      <img src={watch('announcement.imageUrl')} alt="Announcement" className="h-full w-full object-contain" />
-                      {!readOnly && (
-                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => { const removedUrl = watch('announcement.imageUrl'); setValue('announcement.imageUrl', '', { shouldDirty: true }); if (removedUrl) deleteImage(removedUrl); }}><X className="h-4 w-4" /></Button>
-                      )}
-                    </div>
-                  ) : (
-                    <label htmlFor="announcement-img" className={cn("flex aspect-video w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 bg-muted/5 transition-colors", readOnly ? "cursor-default" : "cursor-pointer hover:bg-muted/10")}>
-                      <ImagePlus className="mb-2 h-10 w-10 text-muted-foreground opacity-40" />
-                      <span className="text-sm font-medium text-muted-foreground">{readOnly ? 'ไม่มีรูปภาพ' : 'คลิกเพื่ออัปโหลดรูปภาพ'}</span>
-                      {!readOnly && <Input id="announcement-img" type="file" accept="image/*" className="sr-only" onChange={handleAnnouncementImage} />}
-                    </label>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
 
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" />ข้อมูลที่อยู่บริษัท (ผู้ส่ง)</CardTitle></CardHeader>

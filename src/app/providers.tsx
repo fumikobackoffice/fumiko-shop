@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { ThemeProvider } from 'next-themes';
 import { PaymentBlocker } from '@/components/shared/payment-blocker';
 import { AnnouncementModal } from '@/components/shared/announcement-modal';
+import { MandatoryQuizModal } from '@/components/shared/mandatory-quiz-modal';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -17,6 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
             <CartProvider>
               {children}
               <AnnouncementModal />
+              <MandatoryQuizModal />
             </CartProvider>
           </PaymentBlocker>
         </AuthProvider>

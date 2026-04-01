@@ -219,7 +219,7 @@ export type ProductVariant = {
   taxRate: number;
 };
 
-export interface Product extends ProductVariant {
+export interface Product extends Omit<ProductVariant, 'status'> {
   name: string;
   description?: string;
   category: string;
@@ -410,11 +410,6 @@ export type Unit = {
   name: string;
 };
 
-export type Unit = {
-  id: string;
-  name: string;
-};
-
 export type PointTransaction = {
   id: string;
   userId: string;
@@ -538,10 +533,27 @@ export type ProvincialShippingRate = {
 
 export type AnnouncementFrequency = 'ONLY_ONCE' | 'EVERY_LOGIN';
 
-export type StoreAnnouncement = {
+export type QuizQuestion = {
+  id: string; // for stable keys in UI
+  question: string;
+  options: string[];
+  correctOptionIndex: number;
+};
+
+export type StoreMandatoryQuiz = {
+  id: string; // generated using crypto.randomUUID()
   active: boolean;
   title: string;
-  content: string;
+  content?: string;
+  imageUrl?: string;
+  questions: QuizQuestion[];
+  updatedAt?: any;
+};
+
+export type StoreAnnouncement = {
+  active: boolean;
+  title?: string;
+  content?: string;
   imageUrl?: string;
   hasAckButton: boolean;
   frequency: AnnouncementFrequency;
@@ -558,6 +570,7 @@ export type StoreSettings = {
   supportPhone?: string;
   supportLineId?: string;
   announcement?: StoreAnnouncement;
+  mandatoryQuizzes?: StoreMandatoryQuiz[];
 };
 
 export type StoreBankAccount = {
@@ -592,4 +605,22 @@ export type GuestCustomer = {
   province?: string;
   postalCode?: string;
   lastPurchaseAt?: any;
+};
+
+// --- Communications ---
+
+export type TargetedAnnouncementTarget = 'ALL_SELLERS' | 'BY_PROVINCE' | 'BY_REGION' | 'SPECIFIC_USERS';
+
+export type TargetedAnnouncement = {
+  id: string; 
+  title: string;
+  content?: string;
+  imageUrl?: string;
+  active: boolean;
+  targetType: TargetedAnnouncementTarget;
+  targetProvinces?: string[]; 
+  targetRegions?: string[]; 
+  targetUserIds?: string[]; 
+  createdAt?: any;
+  updatedAt?: any;
 };

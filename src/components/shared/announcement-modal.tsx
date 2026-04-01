@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Megaphone, X, Search } from 'lucide-react';
 import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export function AnnouncementModal() {
   const { user } = useAuth();
@@ -76,16 +78,20 @@ export function AnnouncementModal() {
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => { if (!open && !announcement.hasAckButton) handleClose(); }}>
+      <Dialog open={isOpen} onOpenChange={(open) => { 
+        if (!open && !announcement.hasAckButton) handleClose(); 
+      }}>
         <DialogContent className="max-w-xl overflow-hidden p-0 gap-0">
-          <DialogHeader className="p-6 bg-primary/5 border-b">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-full text-primary">
-                <Megaphone className="h-5 w-5" />
+          {announcement.title && (
+            <DialogHeader className="p-6 bg-primary/5 border-b">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-full text-primary">
+                  <Megaphone className="h-5 w-5" />
+                </div>
+                <DialogTitle className="text-xl font-bold font-headline">{announcement.title}</DialogTitle>
               </div>
-              <DialogTitle className="text-xl font-bold font-headline">{announcement.title}</DialogTitle>
-            </div>
-          </DialogHeader>
+            </DialogHeader>
+          )}
           
           <div className="max-h-[70vh] overflow-y-auto">
             {announcement.imageUrl && (
@@ -106,11 +112,14 @@ export function AnnouncementModal() {
                 </div>
               </div>
             )}
-            <div className="p-6">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                {announcement.content}
+            
+            {announcement.content && (
+              <div className={cn("p-6", !announcement.title && !announcement.imageUrl && "pt-6")}>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {announcement.content}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <DialogFooter className="p-4 bg-muted/30 border-t flex-col sm:flex-row gap-2">
