@@ -276,8 +276,8 @@ export function TargetedAnnouncementDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ALL_SELLERS">📢 ส่งให้เจ้าของสาขาทุกคน</SelectItem>
-                        <SelectItem value="BY_REGION">📍 ส่งเฉพาะแยกตาม "ภูมิภาค" (เช่น ภาคเหนือ, ภาคอีสาน)</SelectItem>
-                        <SelectItem value="BY_PROVINCE">🏙️ ส่งเฉพาะบาง "จังหวัด"</SelectItem>
+                        <SelectItem value="BY_REGION">📍 ส่งตาม ภูมิภาคที่สาขาตั้งอยู่ (เช่น ภาคเหนือ, ภาคอีสาน)</SelectItem>
+                        <SelectItem value="BY_PROVINCE">🏙️ ส่งตาม จังหวัดที่สาขาตั้งอยู่</SelectItem>
                         <SelectItem value="SPECIFIC_USERS">👤 ส่งเฉพาะแบบเจาะจงรายหัวเครือข่าย</SelectItem>
                       </SelectContent>
                     </Select>
@@ -291,7 +291,10 @@ export function TargetedAnnouncementDialog({
               {targetType === 'BY_REGION' && (
                 <FormField control={form.control} name="targetRegions" render={({ field }) => (
                   <FormItem className="p-4 border rounded-lg">
-                    <FormLabel>เลือกภูมิภาคที่ต้องการ (เลือกได้หลายข้อ)</FormLabel>
+                    <FormLabel>เลือกภูมิภาคที่สาขาตั้งอยู่ (เลือกได้หลายข้อ)</FormLabel>
+                    <p className="text-[11px] text-muted-foreground -mt-1 mb-2 flex items-center gap-1">
+                      💡 ระบบจะส่งให้เจ้าของสาขาที่มีสาขาตั้งอยู่ในภูมิภาคที่เลือก ถ้ามีหลายสาขาต่างภูมิภาคก็จะได้รับทุกภูมิภาคที่มีสาขาตั้งอยู่
+                    </p>
                     <div className="flex gap-2 flex-wrap mb-3 mt-2">
                       {field.value?.map(r => (
                         <Badge key={r} variant="secondary" className="gap-1 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1">
@@ -324,7 +327,10 @@ export function TargetedAnnouncementDialog({
               {targetType === 'BY_PROVINCE' && (
                 <FormField control={form.control} name="targetProvinces" render={({ field }) => (
                   <FormItem className="p-4 border rounded-lg">
-                    <FormLabel>เลือกจังหวัดที่ต้องการ</FormLabel>
+                    <FormLabel>เลือกจังหวัดที่สาขาตั้งอยู่</FormLabel>
+                    <p className="text-[11px] text-muted-foreground -mt-1 mb-2">
+                      💡 ระบบจะไม่ดูจากที่อยู่ผู้ใช้ แต่ดูจากจังหวัดที่สาขาตั้งอยู่โดยตรง
+                    </p>
                     <div className="flex gap-2 flex-wrap mb-3">
                       {field.value?.map(p => (
                         <Badge key={p} variant="secondary" className="gap-1 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1">

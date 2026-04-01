@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
-import { StoreSettings, TargetedAnnouncement } from '@/lib/types';
+import { doc, collection, query, where } from 'firebase/firestore';
+import { StoreSettings, TargetedAnnouncement, Branch } from '@/lib/types';
 import { regions } from '@/lib/provinces';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -46,6 +46,19 @@ export function MandatoryQuizModal() {
   const targetedRef = useMemoFirebase(() => firestore ? collection(firestore, 'targeted_announcements') : null, [firestore]);
   const { data: targetedAnns } = useCollection<TargetedAnnouncement>(targetedRef);
 
+  // Fetch branches owned by this user to determine actual regions/provinces
+  const userBranchesRef = useMemoFirebase(() => {
+    if (!firestore || !user || user.role !== 'seller') return null;
+    return query(collection(firestore, 'branches'), where('ownerId', '==', user.id));
+  }, [firestore, user]);
+  const { data: userBranches } = useCollection<Branch>(userBranchesRef);
+
+  // Derive the set of provinces this user actually has branches in
+  const userBranchProvinces = useMemo(() => {
+    if (!userBranches || userBranches.length === 0) return [] as string[];
+    return [...new Set(userBranches.map(b => b.province).filter((p): p is string => !!p))];
+  }, [userBranches]);
+
   // Derive pending tasks (Quizzes + Targeted Announcements)
   const pendingTasks = useMemo(() => {
     if (!user || user.role !== 'seller') return [];
@@ -74,15 +87,27 @@ export function MandatoryQuizModal() {
     // 2. Targeted Announcements
     if (targetedAnns) {
       targetedAnns.filter(ta => ta.active).forEach(ta => {
-        // Filter by target logic
+        // Filter by target logic — region/province based on user's BRANCH locations
         let matches = false;
         if (ta.targetType === 'ALL_SELLERS') matches = true;
-        else if (ta.targetType === 'BY_PROVINCE' && ta.targetProvinces?.includes(user.province || '')) matches = true;
+        else if (ta.targetType === 'BY_PROVINCE') {
+          // Check if any of user's branches are in the targeted provinces
+          matches = userBranchProvinces.some(p => ta.targetProvinces?.includes(p));
+          // Fallback: also check user's own province for backward compatibility
+          if (!matches && user.province) matches = ta.targetProvinces?.includes(user.province) || false;
+        }
         else if (ta.targetType === 'SPECIFIC_USERS' && ta.targetUserIds?.includes(user.id)) matches = true;
         else if (ta.targetType === 'BY_REGION') {
-          // Check region mapping
-          const userRegion = Object.keys(regions).find(r => regions[r as keyof typeof regions].includes(user.province || ''));
-          if (userRegion && ta.targetRegions?.includes(userRegion)) matches = true;
+          // Check region mapping against user's BRANCH provinces
+          const branchRegions = userBranchProvinces
+            .map(p => Object.keys(regions).find(r => regions[r as keyof typeof regions].indexOf(p as never) !== -1))
+            .filter((r): r is string => !!r);
+          matches = branchRegions.some(r => ta.targetRegions?.includes(r));
+          // Fallback: also check user's own province for backward compatibility
+          if (!matches && user.province) {
+            const userRegion = Object.keys(regions).find(r => regions[r as keyof typeof regions].indexOf(user.province! as never) !== -1);
+            if (userRegion && ta.targetRegions?.includes(userRegion)) matches = true;
+          }
         }
 
         if (matches) {
