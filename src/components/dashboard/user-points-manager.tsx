@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 
 interface UserPointsManagerProps {
   user: UserProfile;
@@ -115,6 +116,7 @@ export function UserPointsManager({ user: userToEdit }: UserPointsManagerProps) 
 
         try {
             await batch.commit();
+            clearGlobalCache('users-data');
             toast({ title: 'ปรับปรุงคะแนนสำเร็จ', description: `ได้ปรับปรุงคะแนนของ ${userToEdit.name} จำนวน ${amount} คะแนน` });
             setIsDialogOpen(false);
             form.reset();

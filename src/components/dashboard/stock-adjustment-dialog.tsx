@@ -33,6 +33,7 @@ import { Badge } from '../ui/badge';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { Switch } from '@/components/ui/switch';
+import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 
 const adjustmentFormSchema = z.object({
     adjustmentType: z.enum(['add', 'deduct', 'wastage']),
@@ -205,6 +206,8 @@ function AdjustmentForm({
             });
 
             toast({ title: 'ปรับปรุงสต็อกสำเร็จ' });
+            clearGlobalCache('products-data');
+            clearGlobalCache('inventory-ledger-data');
             onSuccess();
 
         } catch (error: any) {

@@ -23,6 +23,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, doc, writeBatch, getDocs, query, where, limit, runTransaction, setDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { PurchaseOrder, ProductGroup, ProductVariant, PurchaseOrderTaxMode } from '@/lib/types';
+import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ProductSearchDialog } from './product-search-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -435,6 +436,7 @@ export function PurchaseOrderForm({ initialData }: { initialData?: PurchaseOrder
             await setDoc(newDocRef, { ...poData, id: newDocRef.id, poNumber: poNumber, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         }
         toast({ title: status === 'ISSUED' ? 'ออกใบสั่งซื้อสำเร็จ' : 'บันทึกฉบับร่างแล้ว', description: `ใบสั่งซื้อได้รับการบันทึก` });
+        clearGlobalCache('procurement-hub-data');
         return true;
     } catch(error: any) {
         console.error("Error saving PO:", error);

@@ -73,6 +73,7 @@ import { cn } from '@/lib/utils';
 import { format, getDaysInMonth } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { useUploadImage } from '@/firebase/storage/use-storage';
+import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 
 /**
  * คอมโพเนนต์เลือกวันที่แบบดรอปดาวน์ (ห้ามอนาคต)
@@ -481,6 +482,8 @@ export function ExternalBillForm({ adminUser }: { adminUser: AppUser }) {
       });
 
       toast({ title: 'เปิดบิลอิสระสำเร็จ', description: 'ระบบบันทึกรายการและตัดสต็อกเรียบร้อยแล้ว' });
+      clearGlobalCache('admin-orders');
+      clearGlobalCache('products-data');
       router.push('/dashboard/orders');
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'ดำเนินการล้มเหลว', description: e.message });

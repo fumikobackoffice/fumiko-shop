@@ -10,6 +10,7 @@ import { History, Loader2, ArrowRightLeft, CheckCircle2, Search, X } from 'lucid
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { GuestSearchDialog } from './guest-search-dialog';
+import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 
 interface GuestMigrationToolProps {
   user: UserProfile;
@@ -70,6 +71,7 @@ export function GuestMigrationTool({ user }: GuestMigrationToolProps) {
         });
 
         await batch.commit();
+        clearGlobalCache('admin-orders');
         setIsMigrated(true);
         toast({ 
           title: 'ควบรวมบัญชีสำเร็จ', 
