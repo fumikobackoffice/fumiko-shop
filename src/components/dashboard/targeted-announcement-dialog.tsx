@@ -5,7 +5,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp, collection } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
 import { TargetedAnnouncement, AppUser } from '@/lib/types';
 import { provinces, regions, Region } from '@/lib/provinces';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ImagePlus, X, Search } from 'lucide-react';
 import Image from 'next/image';
@@ -51,14 +52,7 @@ export function TargetedAnnouncementDialog({
   
   // Search state for users
   const [userSearch, setUserSearch] = useState("");
-  const usersRef = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
-  const { data: usersData } = useCollection<AppUser>(usersRef);
-  const sellers = (usersData || []).filter(u => u.role === 'seller');
-  const filteredSellers = sellers.filter(s => 
-    s.name.toLowerCase().includes(userSearch.toLowerCase()) || 
-    s.id.toLowerCase().includes(userSearch.toLowerCase())
-  );
-
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -74,6 +68,41 @@ export function TargetedAnnouncementDialog({
   });
 
   const targetType = form.watch('targetType');
+
+  // Manual fetch state to accurately track loading independently of Firebase's real-time cache flaws
+  const [usersData, setUsersData] = useState<AppUser[] | null>(null);
+  const [isUsersLoading, setIsUsersLoading] = useState(false);
+
+  useEffect(() => {
+    if (!firestore || targetType !== 'SPECIFIC_USERS') return;
+    if (usersData !== null) return; // Only fetch once to prevent heavy reads
+    
+    let isMounted = true;
+    const fetchUsers = async () => {
+      setIsUsersLoading(true);
+      try {
+        const snap = await getDocs(collection(firestore, 'users'));
+        if (!isMounted) return;
+        
+        const users = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
+        setUsersData(users);
+      } catch (err) {
+        console.error("Failed to load users", err);
+      } finally {
+        if (isMounted) setIsUsersLoading(false);
+      }
+    };
+    
+    fetchUsers();
+
+    return () => { isMounted = false; };
+  }, [firestore, targetType, usersData]);
+
+  const sellers = (usersData || []).filter(u => u.role === 'seller');
+  const filteredSellers = sellers.filter(s => 
+    s.name?.toLowerCase().includes(userSearch.toLowerCase()) || 
+    s.id.toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   // Clear related array fields when switching explicitly
   useEffect(() => {
@@ -236,7 +265,15 @@ export function TargetedAnnouncementDialog({
                 <FormField control={form.control} name="targetRegions" render={({ field }) => (
                   <FormItem className="p-4 border rounded-lg">
                     <FormLabel>เลือกภูมิภาคที่ต้องการ (เลือกได้หลายข้อ)</FormLabel>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+                    <div className="flex gap-2 flex-wrap mb-3 mt-2">
+                      {field.value?.map(r => (
+                        <Badge key={r} variant="secondary" className="gap-1 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1">
+                          {r} <X className="h-3 w-3 cursor-pointer" onClick={() => form.setValue('targetRegions', field.value?.filter(x => x !== r))} />
+                        </Badge>
+                      ))}
+                      {(!field.value || field.value.length === 0) && <span className="text-xs text-muted-foreground py-1">ยังไม่ได้เลือกสักภูมิภาค</span>}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {regionKeys.map(region => (
                         <div key={region} className="flex items-center gap-2">
                           <Checkbox 
@@ -313,25 +350,31 @@ export function TargetedAnnouncementDialog({
 
                     <ScrollArea className="h-48 border rounded-md">
                       <div className="divide-y">
-                        {filteredSellers.map(seller => (
-                          <div key={seller.id} className="flex flex-row items-center space-x-3 p-3 hover:bg-muted/50 transition-colors">
-                            <Checkbox 
-                              id={`user-${seller.id}`}
-                              checked={field.value?.includes(seller.id)} 
-                              onCheckedChange={(checked) => {
-                                const current = field.value || [];
-                                if (checked) form.setValue('targetUserIds', [...current, seller.id]);
-                                else form.setValue('targetUserIds', current.filter(c => c !== seller.id));
-                              }} 
-                            />
-                            <div className="flex flex-col flex-1 leading-none">
-                              <label htmlFor={`user-${seller.id}`} className="text-sm font-medium cursor-pointer">{seller.name}</label>
-                              <span className="text-xs text-muted-foreground mt-1">ID: {seller.id} • {seller.province || 'ไม่ระบุจังหวัด'}</span>
-                            </div>
+                        {isUsersLoading ? (
+                          <div className="p-8 text-center flex flex-col items-center justify-center gap-3">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                            <span className="text-sm text-muted-foreground">กำลังดาวน์โหลดรายชื่อ...</span>
                           </div>
-                        ))}
-                        {filteredSellers.length === 0 && (
+                        ) : filteredSellers.length === 0 ? (
                           <div className="p-4 text-center text-xs text-muted-foreground">ไม่พบข้อมูลสาขา</div>
+                        ) : (
+                          filteredSellers.map(seller => (
+                            <div key={seller.id} className="flex flex-row items-center space-x-3 p-3 hover:bg-muted/50 transition-colors">
+                              <Checkbox 
+                                id={`user-${seller.id}`}
+                                checked={field.value?.includes(seller.id)} 
+                                onCheckedChange={(checked) => {
+                                  const current = field.value || [];
+                                  if (checked) form.setValue('targetUserIds', [...current, seller.id]);
+                                  else form.setValue('targetUserIds', current.filter(c => c !== seller.id));
+                                }} 
+                              />
+                              <div className="flex flex-col flex-1 leading-none">
+                                <label htmlFor={`user-${seller.id}`} className="text-sm font-medium cursor-pointer">{seller.name}</label>
+                                <span className="text-xs text-muted-foreground mt-1">ID: {seller.id} • {seller.province || 'ไม่ระบุจังหวัด'}</span>
+                              </div>
+                            </div>
+                          ))
                         )}
                       </div>
                     </ScrollArea>
