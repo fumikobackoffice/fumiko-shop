@@ -75,9 +75,11 @@ export function AppSidebar() {
         'orders': 'manage_orders',
         'shipping': 'manage_shipping',
         'inventory': 'manage_inventory',
+        'services': 'manage_inventory',
         'suppliers': 'manage_suppliers',
         'branches': 'manage_branches',
         'customers': 'manage_customers',
+        'communications': 'manage_system',
         'system': 'manage_system'
     };
     
@@ -225,7 +227,6 @@ export function AppSidebar() {
               )}
 
               {hasPermission('customers', 'view') && (
-                <>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={isActive('/dashboard/users')}>
                       <Link href="/dashboard/users">
@@ -234,6 +235,8 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+              )}
+              {hasPermission('communications', 'view') && (
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={isActive('/dashboard/communications')}>
                       <Link href="/dashboard/communications">
@@ -242,13 +245,12 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                </>
               )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {hasPermission('inventory', 'view') && (
+        {hasPermission('services', 'view') && (
           <SidebarGroup>
             <SidebarGroupLabel className="flex items-center gap-2 px-2 py-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <ChevronDown className="h-3 w-3" />

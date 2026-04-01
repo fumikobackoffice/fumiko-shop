@@ -22,11 +22,12 @@ export default function CommunicationsPage() {
   const router = useRouter();
 
   // Granular Permission Checks
-  const canViewSystem = useMemo(() => {
+  const canViewComms = useMemo(() => {
     if (!user) return false;
     if (user.role === 'super_admin') return true;
     const perms = user.permissions || [];
-    return perms.includes('system:view') || perms.includes('system:manage') || perms.includes('manage_system');
+    return perms.includes('communications:view') || perms.includes('communications:manage') 
+      || perms.includes('system:manage') || perms.includes('manage_system'); // Legacy fallback
   }, [user]);
 
   const isReadOnly = useMemo(() => {
@@ -34,7 +35,8 @@ export default function CommunicationsPage() {
     if (user.role === 'super_admin') return false;
     
     const perms = user.permissions || [];
-    const hasManagePermission = perms.includes('system:manage') || perms.includes('manage_system');
+    const hasManagePermission = perms.includes('communications:manage') 
+      || perms.includes('system:manage') || perms.includes('manage_system'); // Legacy fallback
     return !hasManagePermission;
   }, [user]);
 
@@ -52,12 +54,12 @@ export default function CommunicationsPage() {
   });
 
   useEffect(() => {
-    if (!loading && user && !canViewSystem) {
+    if (!loading && user && !canViewComms) {
       router.replace('/dashboard');
     }
-  }, [user, loading, router, canViewSystem]);
+  }, [user, loading, router, canViewComms]);
 
-  if (loading || !user || !canViewSystem) {
+  if (loading || !user || !canViewComms) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-background">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>

@@ -148,22 +148,24 @@ function DateDropdownPicker({
 // แผนผังโมดูลสำหรับกำหนดสิทธิ์
 const PERMISSION_MODULES = [
   { id: 'revenue', label: 'การเงินและกำไร', description: 'รายงานยอดขาย รายงานภาษี และสรุปผลกำไร' },
-  { id: 'orders', label: 'จัดการออเดอร์', description: 'ตรวจสอบสลิป ยืนยันชำระเงิน และยกเลิกออเดอร์' },
+  { id: 'orders', label: 'จัดการออเดอร์', description: 'ตรวจสอบสลิป ยืนยันชำระเงิน เปิดบิลอิสระ และยกเลิกออเดอร์' },
   { id: 'shipping', label: 'การจัดส่งพัสดุ', description: 'พิมพ์ใบปะหน้า และบันทึกเลขพัสดุ' },
-  { id: 'inventory', label: 'สต็อกสินค้า', description: 'จัดการสินค้า แพ็กเกจ ใบสั่งซื้อ (PO) และการรับของ' },
+  { id: 'inventory', label: 'สต็อกสินค้า', description: 'จัดการสินค้า แพ็กเกจ ใบสั่งซื้อ (PO) การรับของ และหมวดหมู่สินค้า' },
+  { id: 'services', label: 'งานบริการ', description: 'จัดการรายการบริการ และหมวดหมู่บริการ' },
   { id: 'suppliers', label: 'แหล่งจัดซื้อ', description: 'จัดการข้อมูลบริษัทคู่ค้า/Supplier' },
   { id: 'branches', label: 'สาขาและสัญญา', description: 'จัดการข้อมูลสาขา สัญญา และบิลค่าธรรมเนียม' },
   { id: 'customers', label: 'เจ้าของสาขา', description: 'จัดการรายชื่อเจ้าของสาขา และคะแนนสะสม' },
-  { id: 'system', label: 'ตั้งค่าระบบ', description: 'จัดการพนักงาน และตั้งค่าระบบร้านค้า' },
+  { id: 'communications', label: 'สื่อสารสาขา', description: 'ประกาศเฉพาะกลุ่ม ประกาศส่วนกลาง และคำถามบังคับ' },
+  { id: 'system', label: 'ตั้งค่าระบบ', description: 'จัดการพนักงาน/แอดมิน และตั้งค่าระบบร้านค้า' },
 ];
 
 const ADMIN_POSITIONS = [
   { id: 'custom', label: 'กำหนดสิทธิ์เอง (Custom)', permissions: [] },
-  { id: 'manager', label: 'ผู้จัดการทั่วไป', permissions: ['revenue:view', 'orders:manage', 'shipping:manage', 'inventory:manage', 'suppliers:manage', 'branches:manage', 'customers:manage', 'system:manage'] },
+  { id: 'manager', label: 'ผู้จัดการทั่วไป', permissions: ['revenue:view', 'orders:manage', 'shipping:manage', 'inventory:manage', 'services:manage', 'suppliers:manage', 'branches:manage', 'customers:manage', 'communications:manage', 'system:manage'] },
   { id: 'accounting', label: 'ฝ่ายบัญชีและการเงิน', permissions: ['revenue:view', 'orders:manage', 'suppliers:view', 'branches:manage'] },
-  { id: 'warehouse', label: 'ฝ่ายคลังสินค้า', permissions: ['inventory:manage', 'shipping:manage'] },
-  { id: 'sales', label: 'ฝ่ายขายและดูแลลูกค้า', permissions: ['orders:manage', 'customers:manage'] },
-  { id: 'franchise', label: 'ฝ่ายบริหารสาขา', permissions: ['branches:manage', 'customers:manage'] },
+  { id: 'warehouse', label: 'ฝ่ายคลังสินค้า', permissions: ['inventory:manage', 'services:manage', 'shipping:manage'] },
+  { id: 'sales', label: 'ฝ่ายขายและดูแลลูกค้า', permissions: ['orders:manage', 'customers:manage', 'communications:manage'] },
+  { id: 'franchise', label: 'ฝ่ายบริหารสาขา', permissions: ['branches:manage', 'customers:manage', 'communications:manage'] },
 ];
 
 const formSchema = z.object({
@@ -320,9 +322,11 @@ export function UserForm({ initialData, sideContent }: UserFormProps) {
         'orders': 'manage_orders',
         'shipping': 'manage_shipping',
         'inventory': 'manage_inventory',
+        'services': 'manage_inventory',
         'suppliers': 'manage_suppliers',
         'branches': 'manage_branches',
         'customers': 'manage_customers',
+        'communications': 'manage_system',
         'system': 'manage_system'
     };
     if (legacyMap[moduleId] && currentPermissions.includes(legacyMap[moduleId])) {
