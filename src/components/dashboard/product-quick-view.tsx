@@ -70,9 +70,8 @@ export function ProductQuickView({
                             <tbody className="divide-y">
                                 {variants.map((v) => {
                                     const stock = (v.inventoryLots || []).reduce((sum, lot) => sum + lot.quantity, 0);
-                                    let vatText = "ไม่มี (ภาษี)";
+                                    let vatText = "รวม VAT";
                                     if (v.taxStatus === 'EXEMPT') vatText = "ยกเว้นภาษี";
-                                    else if (v.taxMode === 'INCLUSIVE') vatText = "รวม VATแล้ว";
                                     else if (v.taxMode === 'EXCLUSIVE') vatText = "ไม่รวม VAT";
 
                                     return (

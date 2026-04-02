@@ -369,13 +369,16 @@ const getStatusVariant = (status: ProductGroup['status']): "success" | "outline"
   }
 }
 
-const SingleVariantFields = ({ form, readOnly }: { form: any, readOnly?: boolean }) => {
+const SingleVariantFields = ({ form, isEditMode, readOnly }: { form: any, isEditMode?: boolean, readOnly?: boolean }) => {
     const { control, getValues, setValue } = form;
+    const [isEditingTaxStatus, setIsEditingTaxStatus] = useState(!isEditMode);
+    const [isEditingTaxMode, setIsEditingTaxMode] = useState(!isEditMode);
     const trackInventory = useWatch({ control, name: 'singleVariant.trackInventory' });
     const requiresShipping = useWatch({ control, name: 'singleVariant.requiresShipping' });
     const inventoryLots = useWatch({ control, name: 'singleVariant.inventoryLots' }) || [];
     const totalStock = inventoryLots.reduce((sum: number, lot: InventoryLot) => sum + (lot.quantity || 0), 0);
-    const taxStatus = useWatch({ control, name: 'singleVariant.taxStatus' });
+    const taxStatus = useWatch({ control, name: 'singleVariant.taxStatus' }) || 'TAXABLE';
+    const taxMode = useWatch({ control, name: 'singleVariant.taxMode' }) || 'INCLUSIVE';
 
     return (
         <div className="space-y-6">
@@ -386,32 +389,78 @@ const SingleVariantFields = ({ form, readOnly }: { form: any, readOnly?: boolean
                 </h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-                <FormField name="singleVariant.taxStatus" control={control} render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>สถานะภาษี <span className="text-destructive">*</span></FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={readOnly}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="เลือกสถานะภาษี" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="TAXABLE">เสียภาษี (Taxable)</SelectItem>
-                                <SelectItem value="EXEMPT">ยกเว้นภาษี (Exempt)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField name="singleVariant.taxMode" control={control} render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className={cn((taxStatus === 'EXEMPT' || readOnly) && "opacity-50")}>รูปแบบการคิดภาษี</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={taxStatus === 'EXEMPT' || readOnly}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="เลือกรูปแบบ" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="INCLUSIVE">รวมภาษีแล้ว (Inclusive)</SelectItem>
-                                <SelectItem value="EXCLUSIVE">ยังไม่รวมภาษี (Exclusive)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                )} />
+                <FormItem>
+                    <FormLabel>สถานะภาษี <span className="text-destructive">*</span></FormLabel>
+                    {isEditMode && !isEditingTaxStatus ? (
+                      <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/5 animate-in fade-in duration-300">
+                        <Badge variant={taxStatus === 'EXEMPT' ? 'secondary' : 'default'} className="h-7 px-3 text-sm shadow-sm">
+                          {taxStatus === 'EXEMPT' ? 'ยกเว้นภาษี (Exempt)' : 'เสียภาษี (Taxable)'}
+                        </Badge>
+                        {!readOnly && (
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsEditingTaxStatus(true)} title="คลิกเพื่อเปลี่ยนสถานะ">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 animate-in slide-in-from-right-2 duration-300">
+                        <div className="flex-1">
+                          <Select
+                              value={taxStatus}
+                              onValueChange={(val) => { setValue('singleVariant.taxStatus', val, { shouldDirty: true, shouldValidate: true }); if (isEditMode) setIsEditingTaxStatus(false); }}
+                              disabled={readOnly}
+                          >
+                              <SelectTrigger><SelectValue placeholder="เลือกสถานะภาษี" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="TAXABLE">เสียภาษี (Taxable)</SelectItem>
+                                  <SelectItem value="EXEMPT">ยกเว้นภาษี (Exempt)</SelectItem>
+                              </SelectContent>
+                          </Select>
+                        </div>
+                        {isEditMode && isEditingTaxStatus && (
+                          <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setIsEditingTaxStatus(false)} title="ยกเลิกการแก้ไข">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                </FormItem>
+                <FormItem>
+                    <FormLabel className={cn((taxStatus === 'EXEMPT' || readOnly) && "opacity-50")}>รูปแบบการคิดภาษี</FormLabel>
+                    {isEditMode && !isEditingTaxMode && taxStatus !== 'EXEMPT' ? (
+                      <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/5 animate-in fade-in duration-300">
+                        <Badge variant={taxMode === 'EXCLUSIVE' ? 'outline' : 'default'} className="h-7 px-3 text-sm shadow-sm">
+                          {taxMode === 'EXCLUSIVE' ? 'ยังไม่รวมภาษี (Exclusive)' : 'รวมภาษีแล้ว (Inclusive)'}
+                        </Badge>
+                        {!readOnly && (
+                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors" onClick={() => setIsEditingTaxMode(true)} title="คลิกเพื่อเปลี่ยนรูปแบบ">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 animate-in slide-in-from-right-2 duration-300 opacity-100">
+                        <div className="flex-1">
+                          <Select
+                              value={taxMode}
+                              onValueChange={(val) => { setValue('singleVariant.taxMode', val, { shouldDirty: true, shouldValidate: true }); if (isEditMode) setIsEditingTaxMode(false); }}
+                              disabled={taxStatus === 'EXEMPT' || readOnly}
+                          >
+                              <SelectTrigger><SelectValue placeholder="เลือกรูปแบบ" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="INCLUSIVE">รวมภาษีแล้ว (Inclusive)</SelectItem>
+                                  <SelectItem value="EXCLUSIVE">ยังไม่รวมภาษี (Exclusive)</SelectItem>
+                              </SelectContent>
+                          </Select>
+                        </div>
+                        {isEditMode && isEditingTaxMode && taxStatus !== 'EXEMPT' && (
+                          <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => setIsEditingTaxMode(false)} title="ยกเลิกการแก้ไข">
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                </FormItem>
                 <FormField name="singleVariant.taxRate" control={control} render={({ field }) => (
                     <FormItem>
                         <FormLabel className={cn((taxStatus === 'EXEMPT' || readOnly) && "opacity-50")}>อัตราภาษี (%)</FormLabel>
@@ -642,7 +691,8 @@ const MultiVariantFields = ({ form, isEditMode, onVariantAction, defaultTaxRate,
 
 const VariantRow = ({ control, index, form, handleFileChange, handleRemoveImage, onAction, readOnly }: any) => {
     const variantStatus = useWatch({ control, name: `multiVariants.${index}.status` });
-    const taxStatus = useWatch({ control, name: `multiVariants.${index}.taxStatus` });
+    const taxStatus = useWatch({ control, name: `multiVariants.${index}.taxStatus` }) || 'TAXABLE';
+    const taxMode = useWatch({ control, name: `multiVariants.${index}.taxMode` }) || 'INCLUSIVE';
     const trackInventory = useWatch({ control, name: `multiVariants.${index}.trackInventory` });
     const requiresShipping = useWatch({ control, name: `multiVariants.${index}.requiresShipping` });
     const inventoryLots = useWatch({ control, name: `multiVariants.${index}.inventoryLots` }) || [];
@@ -650,6 +700,7 @@ const VariantRow = ({ control, index, form, handleFileChange, handleRemoveImage,
     const variantAttributes = Object.keys(form.getValues('multiVariants')[0]?.attributes || {});
     const fieldValues = form.getValues(`multiVariants.${index}`);
     const isArchived = variantStatus === 'archived';
+    const { setValue } = form;
     
     return (
       <TableRow className={cn("align-top", isArchived && "bg-slate-50 text-muted-foreground")}>
@@ -669,22 +720,26 @@ const VariantRow = ({ control, index, form, handleFileChange, handleRemoveImage,
         <TableCell className="align-top p-2"><FormField name={`multiVariants.${index}.lowStockThreshold`} control={control} render={({ field }) => (<FormItem className="space-y-0"><FormControl><NumericInput {...field} isDecimal={false} disabled={!trackInventory || readOnly} value={field.value ?? null} /></FormControl></FormItem>)} /></TableCell>
         <TableCell className="align-top p-2"><FormField name={`multiVariants.${index}.weight`} control={control} render={({ field }) => (<FormItem className="space-y-0"><FormControl><NumericInput {...field} disabled={!requiresShipping || readOnly} /></FormControl></FormItem>)} /></TableCell>
         <TableCell className="align-top p-2 space-y-2">
-            <FormField name={`multiVariants.${index}.taxStatus`} control={control} render={({ field }) => (
-                <FormItem className="space-y-0">
-                    <Select onValueChange={field.onChange} value={field.value} disabled={readOnly}>
-                        <FormControl><SelectTrigger className="h-8 text-[10px]"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="TAXABLE">เสียภาษี</SelectItem><SelectItem value="EXEMPT">ยกเว้น</SelectItem></SelectContent>
-                    </Select>
-                </FormItem>
-            )} />
-            <FormField name={`multiVariants.${index}.taxMode`} control={control} render={({ field }) => (
-                <FormItem className="space-y-0">
-                    <Select onValueChange={field.onChange} value={field.value} disabled={taxStatus === 'EXEMPT' || readOnly}>
-                        <FormControl><SelectTrigger className="h-8 text-[10px]"><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="INCLUSIVE">รวม VAT</SelectItem><SelectItem value="EXCLUSIVE">แยก VAT</SelectItem></SelectContent>
-                    </Select>
-                </FormItem>
-            )} />
+            <FormItem className="space-y-0">
+                <Select
+                    value={taxStatus}
+                    onValueChange={(val) => setValue(`multiVariants.${index}.taxStatus`, val, { shouldDirty: true, shouldValidate: true })}
+                    disabled={readOnly}
+                >
+                    <SelectTrigger className="h-8 text-[10px]"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="TAXABLE">เสียภาษี</SelectItem><SelectItem value="EXEMPT">ยกเว้น</SelectItem></SelectContent>
+                </Select>
+            </FormItem>
+            <FormItem className="space-y-0">
+                <Select
+                    value={taxMode}
+                    onValueChange={(val) => setValue(`multiVariants.${index}.taxMode`, val, { shouldDirty: true, shouldValidate: true })}
+                    disabled={taxStatus === 'EXEMPT' || readOnly}
+                >
+                    <SelectTrigger className="h-8 text-[10px]"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="INCLUSIVE">รวม VAT</SelectItem><SelectItem value="EXCLUSIVE">แยก VAT</SelectItem></SelectContent>
+                </Select>
+            </FormItem>
             <FormField name={`multiVariants.${index}.taxRate`} control={control} render={({ field }) => (<FormItem className="space-y-0"><FormControl><NumericInput {...field} className="h-8 text-[10px] text-center" disabled={taxStatus === 'EXEMPT' || readOnly} /></FormControl></FormItem>)} />
         </TableCell>
         <TableCell className="align-top p-2"><FormField control={control} name={`multiVariants.${index}.requiresShipping`} render={({ field }) => (<FormItem className="flex justify-center pt-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={readOnly} /></FormControl></FormItem>)} /></TableCell>
@@ -929,7 +984,7 @@ export function ProductForm({ initialData, readOnly }: ProductFormProps) {
                 <FormField control={control} name="hasVariants" render={({ field }) => (
                     <FormItem className="flex items-center justify-between rounded-lg border p-4"><div><FormLabel>สินค้านี้มีหลายตัวเลือก</FormLabel><FormDescription>เช่น มีหลายขนาดหรือหลายสี</FormDescription></div><FormControl><Switch checked={field.value} onCheckedChange={(c) => { if (c) { setValue('hasVariants', true); form.unregister('singleVariant'); } else setIsConfirmDisableVariantDialogOpen(true); }} disabled={readOnly} /></FormControl></FormItem>
                 )}/>
-                {hasVariants ? <MultiVariantFields form={form} isEditMode={isEditMode} onVariantAction={(i, a) => { setVariantAction({ index: i, action: a }); setIsVariantActionDialogOpen(true); }} defaultTaxRate={defaultTaxRate} readOnly={readOnly} /> : <SingleVariantFields form={form} readOnly={readOnly} />}
+                {hasVariants ? <MultiVariantFields form={form} isEditMode={isEditMode} onVariantAction={(i, a) => { setVariantAction({ index: i, action: a }); setIsVariantActionDialogOpen(true); }} defaultTaxRate={defaultTaxRate} readOnly={readOnly} /> : <SingleVariantFields form={form} isEditMode={isEditMode} readOnly={readOnly} />}
               </CardContent>
             </Card>
           </div>

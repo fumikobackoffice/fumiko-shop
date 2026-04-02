@@ -184,8 +184,8 @@ function ProductDataRow({
     if (!variants || variants.length === 0) return "ไม่ระบุ";
     const v = variants[0];
     if (v.taxStatus === 'EXEMPT') return "ยกเว้นภาษี";
-    else if (v.taxMode === 'INCLUSIVE') return "รวม VAT";
-    else return "ไม่รวม VAT";
+    else if (v.taxMode === 'EXCLUSIVE') return "ไม่รวม VAT";
+    else return "รวม VAT";
   }, [variants]);
 
   const handleAction = (action: ActionType) => {
