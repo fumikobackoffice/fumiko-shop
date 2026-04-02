@@ -74,6 +74,7 @@ import { format, getDaysInMonth } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { useUploadImage } from '@/firebase/storage/use-storage';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { getDisplayPrice } from '@/lib/lot-pricing';
 
 /**
  * คอมโพเนนต์เลือกวันที่แบบดรอปดาวน์ (ห้ามอนาคต)
@@ -187,7 +188,7 @@ const externalBillSchema = z.object({
 type FormValues = z.infer<typeof externalBillSchema>;
 
 const deductFromLots = (lots: InventoryLot[], quantityToDeduct: number) => {
-    const fulfilledFromLots: { lotId: string; quantity: number; costPerItem: number; }[] = [];
+    const fulfilledFromLots: { lotId: string; quantity: number; costPerItem: number; sellingPrice?: number; }[] = [];
     const remainingLots = [...lots].map(l => ({ 
         ...l, 
         receivedAt: l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt) 
@@ -198,7 +199,7 @@ const deductFromLots = (lots: InventoryLot[], quantityToDeduct: number) => {
         if (needed <= 0) break;
         const take = Math.min(lot.quantity, needed);
         if (take > 0) {
-            fulfilledFromLots.push({ lotId: lot.lotId, quantity: take, costPerItem: lot.cost });
+            fulfilledFromLots.push({ lotId: lot.lotId, quantity: take, costPerItem: lot.cost, sellingPrice: lot.sellingPrice });
             lot.quantity -= take;
             needed -= take;
         }
@@ -260,7 +261,7 @@ export function ExternalBillForm({ adminUser }: { adminUser: AppUser }) {
       productName: `${group.name}${attrs ? ` (${attrs})` : ''}`,
       sku: variant.sku,
       quantity: 1,
-      itemPrice: variant.price,
+      itemPrice: getDisplayPrice(variant),
       unit: group.unit,
       taxStatus: variant.taxStatus || 'TAXABLE',
       taxMode: variant.taxMode || 'INCLUSIVE',

@@ -49,7 +49,7 @@ const deductFromLots = (lots: InventoryLot[], quantityToDeduct: number) => {
     if (!lots) {
         throw new Error("Inventory lots data is missing.");
     }
-    const fulfilledFromLots: { lotId: string; quantity: number; costPerItem: number; }[] = [];
+    const fulfilledFromLots: { lotId: string; quantity: number; costPerItem: number; sellingPrice?: number; }[] = [];
     const remainingLots = [...lots].map(l => ({ ...l, receivedAt: l.receivedAt?.toDate ? l.receivedAt.toDate() : new Date(l.receivedAt) }))
         .sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime());
 
@@ -59,7 +59,7 @@ const deductFromLots = (lots: InventoryLot[], quantityToDeduct: number) => {
         if (needed <= 0) break;
         const take = Math.min(lot.quantity, needed);
         if (take > 0) {
-            fulfilledFromLots.push({ lotId: lot.lotId, quantity: take, costPerItem: lot.cost });
+            fulfilledFromLots.push({ lotId: lot.lotId, quantity: take, costPerItem: lot.cost, sellingPrice: lot.sellingPrice });
             lot.quantity -= take;
             needed -= take;
         }
@@ -173,7 +173,8 @@ async function prepareOrderData(firestore: Firestore, cartItems: CartItem[], all
                     productName: `${product.name} (${Object.entries(product.attributes).map(([key, value]) => `${key}: ${value}`).join(', ')})`.replace(/\s*\(\)$/, ''),
                     productImage: product.imageUrls?.[0] || '',
                     quantity: cartItem.quantity,
-                    itemPrice,
+                    itemPrice: cartItem.lotPrice ?? itemPrice,
+                    lotLabel: cartItem.lotLabel,
                     fulfilledFromLots,
                     taxStatus,
                     taxMode,
@@ -491,7 +492,7 @@ function CheckoutPageContents() {
 
             if (cartItem.type === 'PRODUCT') {
                 const p = cartItem.item as Product;
-                basePrice = getPriceForQuantity(p, cartItem.quantity);
+                basePrice = cartItem.lotPrice ?? getPriceForQuantity(p, cartItem.quantity);
                 taxRate = p.taxRate ?? storeSettings?.defaultTaxRate ?? 7;
                 taxMode = p.taxMode || 'INCLUSIVE';
                 isTaxable = p.taxStatus !== 'EXEMPT';
@@ -550,7 +551,7 @@ function CheckoutPageContents() {
             .filter(item => item.type !== 'SERVICE')
             .reduce((sum, cartItem) => {
                 let price = 0;
-                if (cartItem.type === 'PRODUCT') price = getPriceForQuantity(cartItem.item as Product, cartItem.quantity);
+                if (cartItem.type === 'PRODUCT') price = cartItem.lotPrice ?? getPriceForQuantity(cartItem.item as Product, cartItem.quantity);
                 else if (cartItem.type === 'PACKAGE') price = (cartItem.item as ProductPackage).price;
                 return sum + price * cartItem.quantity;
             }, 0);
@@ -947,7 +948,7 @@ function CheckoutPageContents() {
 
                                                 if (cartItem.type === 'PRODUCT') {
                                                     const p = cartItem.item as Product;
-                                                    basePrice = getPriceForQuantity(p, cartItem.quantity);
+                                                    basePrice = cartItem.lotPrice ?? getPriceForQuantity(p, cartItem.quantity);
                                                     taxRate = p.taxRate ?? 7;
                                                     taxMode = p.taxMode || 'INCLUSIVE';
                                                     isTaxable = p.taxStatus !== 'EXEMPT';

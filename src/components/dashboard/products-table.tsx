@@ -58,6 +58,11 @@ function VariantSubRow({
 
   const isLowStock = variant.trackInventory && stock <= (variant.lowStockThreshold ?? 0);
 
+  let vatLabel = "ไม่ระบุ";
+  if (variant.taxStatus === 'EXEMPT') vatLabel = "ยกเว้นภาษี";
+  else if (variant.taxMode === 'INCLUSIVE') vatLabel = "รวม VAT";
+  else if (variant.taxMode === 'EXCLUSIVE') vatLabel = "ไม่รวม VAT";
+
   return (
     <TableRow className="bg-muted/20 hover:bg-muted/50">
       <TableCell></TableCell>
@@ -66,6 +71,9 @@ function VariantSubRow({
       <TableCell>฿{variant.price.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
       <TableCell className={cn("text-right font-semibold", isLowStock && "text-destructive font-bold")}>
         {stock.toLocaleString()}
+      </TableCell>
+      <TableCell className="text-center">
+        <Badge variant="outline" className="font-normal text-xs whitespace-nowrap">{vatLabel}</Badge>
       </TableCell>
       <TableCell>{variant.sku}</TableCell>
       <TableCell className="text-right">
@@ -94,6 +102,7 @@ function ProductDataRow({
   hasVariants,
   onManageStock,
   canManage,
+  onQuickView,
 }: { 
   group: ProductGroup; 
   variants: ProductVariant[] | undefined; 
@@ -107,6 +116,7 @@ function ProductDataRow({
   hasVariants: boolean;
   onManageStock: (group: ProductGroup, variantId?: string | null) => void;
   canManage: boolean;
+  onQuickView: (group: ProductGroup, variants: ProductVariant[]) => void;
 }) {
   const router = useRouter();
   const isArchivedTab = activeTab === 'archived';
@@ -170,6 +180,14 @@ function ProductDataRow({
     };
   }, [variants, isLoading]);
 
+  const vatLabel = React.useMemo(() => {
+    if (!variants || variants.length === 0) return "ไม่ระบุ";
+    const v = variants[0];
+    if (v.taxStatus === 'EXEMPT') return "ยกเว้นภาษี";
+    else if (v.taxMode === 'INCLUSIVE') return "รวม VAT";
+    else return "ไม่รวม VAT";
+  }, [variants]);
+
   const handleAction = (action: ActionType) => {
     setTimeout(() => {
       openDialog(group, action);
@@ -204,6 +222,7 @@ function ProductDataRow({
         <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
         <TableCell className="text-right"><Skeleton className="h-4 w-12 inline-block" /></TableCell>
+        <TableCell className="text-center"><Skeleton className="h-4 w-12 inline-block" /></TableCell>
         <TableCell><Skeleton className="h-4 w-28" /></TableCell>
         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
       </TableRow>
@@ -262,6 +281,9 @@ function ProductDataRow({
       <TableCell className={cn("text-right", isAnyVariantLow && "text-destructive font-bold")}>
         {totalStockLabel}
       </TableCell>
+      <TableCell className="text-center">
+        <Badge variant="outline" className="font-normal text-xs whitespace-nowrap">{vatLabel}</Badge>
+      </TableCell>
       <TableCell>{group.category || '-'}</TableCell>
       <TableCell className="text-right">
          <DropdownMenu modal={false}>
@@ -293,9 +315,13 @@ function ProductDataRow({
               </>
             ) : (
               <>
-                <DropdownMenuItem onSelect={handleNavigateToEdit}>
-                  {canManage ? <Pen className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
-                  {canManage ? 'แก้ไข' : 'ดูรายละเอียด'}
+                <DropdownMenuItem onSelect={() => onQuickView(group, variants || [])}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    ดูรายละเอียด
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleNavigateToEdit} disabled={!canManage}>
+                  <Pen className="mr-2 h-4 w-4" />
+                  แก้ไข
                 </DropdownMenuItem>
                 {!hasVariants && canManage && (
                   <DropdownMenuItem onSelect={() => handleManageStockAction(null)}>
@@ -331,6 +357,7 @@ export function ProductsTable({
     onSelectedIdsChange,
     onManageStock,
     canManage,
+    onQuickView,
 }: { 
     productGroups: ProductGroup[], 
     variantsByGroup: Record<string, ProductVariant[]>, 
@@ -340,7 +367,8 @@ export function ProductsTable({
     selectedIds: string[],
     onSelectedIdsChange: (ids: string[]) => void,
     onManageStock: (group: ProductGroup, variantId?: string | null) => void,
-    canManage: boolean;
+    canManage: boolean,
+    onQuickView: (group: ProductGroup, variants: ProductVariant[]) => void,
 }) {
   const [expandedIds, setExpandedIds] = React.useState<string[]>([]);
 
@@ -385,7 +413,8 @@ export function ProductsTable({
             <TableHead>สถานะ</TableHead>
             <TableHead>ราคา</TableHead>
             <TableHead className="text-right">สต็อกทั้งหมด</TableHead>
-            <TableHead>หมวดหมู่</TableHead>
+            <TableHead className="text-center">ภาษี (VAT)</TableHead>
+            <TableHead>หมวดหมู่ / SKU</TableHead>
             <TableHead className="whitespace-nowrap text-right">การดำเนินการ</TableHead>
           </TableRow>
         </TableHeader>
@@ -415,6 +444,7 @@ export function ProductsTable({
                   hasVariants={hasVariants}
                   onManageStock={onManageStock}
                   canManage={canManage}
+                  onQuickView={onQuickView}
                 />
                  {hasVariants && isExpanded && variants
                     ?.slice()

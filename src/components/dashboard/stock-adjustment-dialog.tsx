@@ -34,11 +34,13 @@ import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { Switch } from '@/components/ui/switch';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
+import { getLatestLotSellingPrice } from '@/lib/lot-pricing';
 
 const adjustmentFormSchema = z.object({
     adjustmentType: z.enum(['add', 'deduct', 'wastage']),
-    quantity: z.coerce.number().int('ต้องเป็นจำนวนเต็ม').min(1, 'จำนวนต้องมากกว่า 0'),
+    quantity: z.coerce.number().int('ต้องเป็นจำนวนเต็ม').min(0, 'จำนวนต้องไม่ติดลบ'),
     cost: z.coerce.number().min(0, 'ต้นทุนต้องไม่ติดลบ').optional(),
+    sellingPrice: z.coerce.number().min(0, 'ราคาขายต้องไม่ติดลบ').optional(),
     reason: z.string().min(1, 'กรุณาระบุเหตุผล'),
 });
 
@@ -111,9 +113,10 @@ function AdjustmentForm({
         resolver: zodResolver(adjustmentFormSchema),
         defaultValues: {
             adjustmentType: 'add',
-            quantity: 1,
-            reason: '',
+            quantity: isNewLot ? 1 : 0,
+            reason: isNewLot ? '' : 'อัปเดตราคา/จำนวน',
             cost: isNewLot ? 0 : undefined,
+            sellingPrice: isNewLot ? getLatestLotSellingPrice(selectedVariant) : targetLot?.sellingPrice,
         },
     });
 
@@ -141,6 +144,9 @@ function AdjustmentForm({
                 let finalAdjustmentType: StockAdjustmentTransaction['type'] = 'ADJUST_ADD';
 
                 if (isNewLot) {
+                    if (quantity <= 0) {
+                        throw new Error('จำนวนการรับเข้าล็อตใหม่ต้องมากกว่า 0');
+                    }
                     if (cost === undefined || cost === null) {
                         throw new Error('กรุณาระบุต้นทุนสำหรับล็อตใหม่');
                     }
@@ -150,6 +156,7 @@ function AdjustmentForm({
                         lotId: transactionLotId, 
                         quantity: quantity, 
                         cost: cost!, 
+                        sellingPrice: values.sellingPrice ?? undefined,
                         receivedAt: new Date(),
                         purchaseOrderNumber: 'MANUAL'
                     };
@@ -186,7 +193,11 @@ function AdjustmentForm({
                         ? existingLot.quantity + quantity 
                         : existingLot.quantity - quantity;
                     
-                    newInventoryLots[existingLotIndex] = { ...existingLot, quantity: newQuantity };
+                    newInventoryLots[existingLotIndex] = { 
+                        ...existingLot, 
+                        quantity: newQuantity,
+                        sellingPrice: values.sellingPrice ?? undefined
+                    };
                     newInventoryLots = newInventoryLots.filter(lot => lot.quantity > 0);
                 }
 
@@ -198,7 +209,7 @@ function AdjustmentForm({
                     lotId: transactionLotId,
                     adminUserId: adminUser.id,
                     adminName: adminUser.name,
-                    type: finalAdjustmentType,
+                    type: quantity === 0 ? 'ADJUST_ADD' : finalAdjustmentType, // If only price adjusted
                     quantity: quantity,
                     reason: reason,
                 };
@@ -262,9 +273,10 @@ function AdjustmentForm({
                                 </FormControl>
                             </FormItem>)} />
                     )}
-                    <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>จำนวน <span className="text-destructive">*</span></FormLabel><FormControl><NumericInput isDecimal={false} {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>จำนวน <span className="text-muted-foreground text-xs">(กรอก 0 ได้ถ้าต้องการแก้แค่ราคา)</span></FormLabel><FormControl><NumericInput isDecimal={false} {...field} /></FormControl><FormMessage /></FormItem>)} />
                     {isNewLot && <FormField control={form.control} name="cost" render={({ field }) => (<FormItem><FormLabel>ต้นทุนต่อหน่วย <span className="text-destructive">*</span></FormLabel><FormControl><NumericInput {...field} /></FormControl><FormMessage /></FormItem>)} />}
-                    <FormField control={form.control} name="reason" render={({ field }) => (<FormItem><FormLabel>เหตุผล <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="เช่น ของเสีย, นับสต็อก, เบิกใช้ภายใน" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="sellingPrice" render={({ field }) => (<FormItem><FormLabel>ราคาขายต่อหน่วย <span className="text-muted-foreground text-xs">(ถ้าไม่กรอกจะใช้ราคามาตรฐาน)</span></FormLabel><FormControl><NumericInput {...field} value={field.value ?? ''} placeholder="ราคาขายของล็อตนี้" /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="reason" render={({ field }) => (<FormItem><FormLabel>เหตุผล <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="เช่น ของเสีย, นับสต็อก, อัปเดตราคา" {...field} /></FormControl><FormMessage /></FormItem>)} />
 
                     <div className="flex justify-end gap-2 pt-4">
                         <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>ยกเลิก</Button>
@@ -498,6 +510,7 @@ export function StockAdjustmentDialog({ productGroup, variants, initialVariantId
                             <Table><TableHeader className="bg-muted/50"><TableRow>
                                 <TableHead>จำนวน</TableHead>
                                 <TableHead>ต้นทุน/หน่วย</TableHead>
+                                <TableHead>ราคาขาย/หน่วย</TableHead>
                                 <TableHead>วันที่รับเข้า</TableHead>
                                 <TableHead>Lot ID</TableHead>
                                 <TableHead className="text-right">ดำเนินการ</TableHead>
@@ -519,6 +532,9 @@ export function StockAdjustmentDialog({ productGroup, variants, initialVariantId
                                                     )}
                                                 </TableCell>
                                                 <TableCell>{lot.cost > 0 ? `฿${lot.cost.toLocaleString('th-TH', {minimumFractionDigits: 2})}` : '-'}</TableCell>
+                                                <TableCell className="text-emerald-600 font-medium">
+                                                    {lot.sellingPrice != null ? `฿${lot.sellingPrice.toLocaleString('th-TH', {minimumFractionDigits: 2})}` : '-'}
+                                                </TableCell>
                                                 <TableCell className="text-xs">{displayDate}</TableCell>
                                                 <TableCell className="text-xs font-mono text-muted-foreground">{lot.lotId.substring(0,8)}</TableCell>
                                                 <TableCell className="text-right">
@@ -536,7 +552,7 @@ export function StockAdjustmentDialog({ productGroup, variants, initialVariantId
                                             </TableRow>
                                         )
                                     })
-                                ) : (<TableRow><TableCell colSpan={5} className="text-center h-32 text-muted-foreground">ไม่มีสต็อกสินค้าในล็อตปัจจุบัน</TableCell></TableRow>)}
+                                ) : (<TableRow><TableCell colSpan={6} className="text-center h-32 text-muted-foreground">ไม่มีสต็อกสินค้าในล็อตปัจจุบัน</TableCell></TableRow>)}
                             </TableBody></Table>
                         </div>
                         {lotPageCount > 1 && (

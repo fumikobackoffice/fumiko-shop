@@ -90,6 +90,7 @@ const inventoryLotSchema = z.object({
   lotId: z.string(),
   quantity: z.coerce.number().int("ต้องเป็นจำนวนเต็ม").min(0, "ต้องเป็น 0 หรือมากกว่า"),
   cost: z.coerce.number().min(0, "ต้องเป็น 0 หรือมากกว่า"),
+  sellingPrice: z.coerce.number().min(0, "ต้องเป็น 0 หรือมากกว่า").optional().nullable(),
   receivedAt: z.any(),
   supplierId: z.string().optional(),
 });
@@ -111,8 +112,8 @@ const variantSchema = z.object({
   trackInventory: z.boolean().default(true),
   requiresShipping: z.boolean().default(true),
   status: z.enum(['active', 'archived']).default('active'),
-  taxStatus: z.enum(['TAXABLE', 'EXEMPT']).default('TAXABLE'),
-  taxMode: z.enum(['INCLUSIVE', 'EXCLUSIVE']).default('INCLUSIVE'),
+  taxStatus: z.preprocess((val) => !val || val === '' ? 'TAXABLE' : val, z.enum(['TAXABLE', 'EXEMPT'])),
+  taxMode: z.preprocess((val) => !val || val === '' ? 'INCLUSIVE' : val, z.enum(['INCLUSIVE', 'EXCLUSIVE'])),
   taxRate: z.coerce.number().min(0).default(7),
 }).superRefine((variant, ctx) => {
   if (variant.compareAtPrice !== null && variant.compareAtPrice !== undefined && variant.price !== null && variant.compareAtPrice <= variant.price) {
@@ -427,7 +428,7 @@ const SingleVariantFields = ({ form, readOnly }: { form: any, readOnly?: boolean
             <h3 className="text-base font-medium mb-4">ราคา</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 items-start">
               <FormField name="singleVariant.price" control={control} render={({ field }) => (<FormItem data-form-field-name="singleVariant.price">
-                  <FormLabel className="flex items-center gap-1"><span>ราคาขาย</span><span className="text-destructive">*</span></FormLabel>
+                  <FormLabel className="flex items-center gap-1"><span>ราคาขายมาตรฐาน</span><TooltipProvider><Tooltip><TooltipTrigger asChild><button type="button" className="cursor-help ml-1"><Info className="h-4 w-4 text-muted-foreground" /></button></TooltipTrigger><TooltipContent><p className="max-w-sm">ใช้เป็นราคาเริ่มต้นสำหรับสต็อกล็อตใหม่ และเป็นราคาชั่วคราวสำหรับสต็อกเก่าที่ไม่มีระบุราคาขาย</p></TooltipContent></Tooltip></TooltipProvider><span className="text-destructive">*</span></FormLabel>
                   <FormControl><NumericInput {...field} disabled={readOnly} /></FormControl><FormMessage/></FormItem>)} />
               <FormField name="singleVariant.compareAtPrice" control={control} render={({ field }) => (<FormItem data-form-field-name="singleVariant.compareAtPrice">
                   <FormLabel className="flex items-center gap-1"><span>ราคาเดิมก่อนลด</span><TooltipProvider><Tooltip><TooltipTrigger asChild><button type="button" className="cursor-help ml-1"><Info className="h-4 w-4 text-muted-foreground" /></button></TooltipTrigger><TooltipContent><p className="max-w-sm">แสดงว่าสินค้าลดราคาอยู่</p></TooltipContent></Tooltip></TooltipProvider></FormLabel>

@@ -140,18 +140,25 @@ function CartPageContents() {
                 
                 let pricePerItem = 0;
                 if (type === 'PRODUCT') {
-                    pricePerItem = getPriceForQuantity(product!, quantity);
+                    // Use lot price if available (lot-based pricing)
+                    if (cartItem.lotPrice != null) {
+                        pricePerItem = cartItem.lotPrice;
+                    } else {
+                        pricePerItem = getPriceForQuantity(product!, quantity);
+                    }
                 } else if (isPackage) {
                     pricePerItem = pkg!.price;
                 } else {
                     pricePerItem = service!.price;
                 }
 
-                const isDiscounted = type === 'PRODUCT' && pricePerItem < product!.price;
+                const isDiscounted = type === 'PRODUCT' && cartItem.lotPrice == null && pricePerItem < product!.price;
                 
                 let maxQuantity = Infinity;
                 if (product && product.trackInventory) {
-                  maxQuantity = (product.inventoryLots || []).reduce((sum, lot) => sum + lot.quantity, 0);
+                  // Use lot-specific max if available, otherwise total stock
+                  maxQuantity = cartItem.maxLotQuantity 
+                    ?? (product.inventoryLots || []).reduce((sum, lot) => sum + lot.quantity, 0);
                 }
 
                 return (
@@ -191,6 +198,7 @@ function CartPageContents() {
                         {isService && <p className="text-primary font-medium">รายการนี้ไม่ต้องมีการจัดส่ง</p>}
                         <p>ราคา: ฿{pricePerItem.toLocaleString('th-TH', { minimumFractionDigits: 2 })} {isPackage ? '/แพ็กเกจ' : isService ? '/บริการ' : '/หน่วย'}</p>
                         {isDiscounted && <Badge variant="secondary" className="mt-1 text-[9px] h-4">ราคาขั้นบันได</Badge>}
+                        {cartItem.lotLabel && <Badge variant="outline" className="mt-1 text-[9px] h-4">📦 {cartItem.lotLabel}</Badge>}
                       </div>
                     </div>
 

@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useSmartFetch, clearGlobalCache } from '@/hooks/use-smart-fetch';
 import { SmartRefreshButton } from '@/components/dashboard/smart-refresh-button';
+import { ProductQuickView } from '@/components/dashboard/product-quick-view';
 
 export type ActionType = 'archive' | 'restore' | 'delete';
 
@@ -44,6 +45,7 @@ export default function ProductsPage() {
   
   const [stockAdjustmentGroup, setStockAdjustmentGroup] = useState<ProductGroup | null>(null);
   const [initialVariantId, setInitialVariantId] = useState<string | null>(null);
+  const [quickViewGroup, setQuickViewGroup] = useState<{ group: ProductGroup, variants: ProductVariant[] } | null>(null);
 
   // Granular Permission Checks
   const canViewInventory = useMemo(() => {
@@ -310,6 +312,7 @@ export default function ProductsPage() {
                         setInitialVariantId(variantId || null);
                     }}
                     canManage={canManageInventory}
+                    onQuickView={(group, variants) => setQuickViewGroup({ group, variants })}
                 />
             </TabsContent>
           ))}
@@ -377,6 +380,12 @@ export default function ProductsPage() {
           }}
         />
       )}
+
+      <ProductQuickView
+        productGroup={quickViewGroup?.group || null}
+        variants={quickViewGroup?.variants || []}
+        onClose={() => setQuickViewGroup(null)}
+      />
     </div>
   );
 }

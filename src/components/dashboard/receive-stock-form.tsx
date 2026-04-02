@@ -27,7 +27,7 @@ async function executeFirestoreUpdate(
   firestore: any,
   adminUser: any,
   purchaseOrder: PurchaseOrder,
-  itemsToReceiveInTransaction: { productVariantId: string, quantityToReceive: number }[]
+  itemsToReceiveInTransaction: { productVariantId: string, quantityToReceive: number, sellingPrice?: number }[]
 ) {
   const batch = writeBatch(firestore);
   const poRef = doc(firestore, 'purchaseOrders', purchaseOrder.id);
@@ -51,6 +51,7 @@ async function executeFirestoreUpdate(
         lotId: newLotId,
         quantity: quantityReceivedThisTime,
         cost: allocatedCostPerItem,
+        sellingPrice: receivedItem?.sellingPrice ?? originalItem.sellingPrice ?? undefined,
         receivedAt: new Date(),
         supplierId: purchaseOrder.supplierId,
         purchaseOrderNumber: purchaseOrder.poNumber,
@@ -102,6 +103,16 @@ export function ReceiveStockForm({ purchaseOrder }: ReceiveStockFormProps) {
   const { user: adminUser } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [quantitiesToReceive, setQuantitiesToReceive] = useState<Record<string, string>>({});
+  const [sellingPrices, setSellingPrices] = useState<Record<string, string>>(() => {
+    // Pre-fill selling prices from PO items
+    const initial: Record<string, string> = {};
+    purchaseOrder.items.forEach(item => {
+      if (item.sellingPrice != null) {
+        initial[item.productVariantId] = String(item.sellingPrice);
+      }
+    });
+    return initial;
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [itemsToSubmit, setItemsToSubmit] = useState<{ productVariantId: string, quantityToReceive: number }[]>([]);
@@ -147,7 +158,10 @@ export function ReceiveStockForm({ purchaseOrder }: ReceiveStockFormProps) {
       return;
     }
     
-    setItemsToSubmit(itemsToActuallyReceive);
+    setItemsToSubmit(itemsToActuallyReceive.map(item => ({
+      ...item,
+      sellingPrice: sellingPrices[item.productVariantId] ? parseFloat(sellingPrices[item.productVariantId]) : undefined,
+    })));
     setIsConfirmOpen(true);
   };
   
@@ -204,6 +218,7 @@ export function ReceiveStockForm({ purchaseOrder }: ReceiveStockFormProps) {
                 <TableHead className="text-center">จำนวนสั่งซื้อ</TableHead>
                 <TableHead className="text-center">รับแล้ว</TableHead>
                 <TableHead className="w-[150px] text-center">จำนวนที่รับ</TableHead>
+                <TableHead className="w-[150px] text-center">ราคาขาย/หน่วย</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -230,6 +245,19 @@ export function ReceiveStockForm({ purchaseOrder }: ReceiveStockFormProps) {
                               {errors[item.productVariantId]}
                           </p>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder={item.sellingPrice != null ? String(item.sellingPrice) : 'ใช้ราคามาตรฐาน'}
+                        value={sellingPrices[item.productVariantId] || ''}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9.]/g, '');
+                          setSellingPrices(prev => ({ ...prev, [item.productVariantId]: v }));
+                        }}
+                        className="text-center"
+                      />
                     </TableCell>
                   </TableRow>
                 );

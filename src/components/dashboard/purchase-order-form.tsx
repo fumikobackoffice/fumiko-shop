@@ -23,6 +23,7 @@ import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, serverTimestamp, doc, writeBatch, getDocs, query, where, limit, runTransaction, setDoc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { PurchaseOrder, ProductGroup, ProductVariant, PurchaseOrderTaxMode } from '@/lib/types';
+import { getLatestLotSellingPrice } from '@/lib/lot-pricing';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ProductSearchDialog } from './product-search-dialog';
@@ -185,6 +186,7 @@ const poItemSchema = z.object({
     sku: z.string(),
     quantity: z.coerce.number().min(1, 'ต้องมีอย่างน้อย 1'),
     cost: z.coerce.number().min(0, 'ต้นทุนต้องไม่ติดลบ'),
+    sellingPrice: z.coerce.number().min(0, 'ราคาขายต้องไม่ติดลบ').optional(),
     quantityReceived: z.number().default(0),
 });
 
@@ -385,6 +387,7 @@ export function PurchaseOrderForm({ initialData }: { initialData?: PurchaseOrder
     }
     const attributesString = Object.entries(variant.attributes).map(([key, value]) => `${key}: ${value}`).join(', ');
     const displayName = `${group.name}${attributesString ? ` (${attributesString})` : ''}`;
+    const latestSellingPrice = getLatestLotSellingPrice(variant);
     append({
         productVariantId: variant.id,
         productGroupId: variant.productGroupId,
@@ -392,6 +395,7 @@ export function PurchaseOrderForm({ initialData }: { initialData?: PurchaseOrder
         sku: variant.sku,
         quantity: 1,
         cost: 0,
+        sellingPrice: latestSellingPrice,
         quantityReceived: 0,
     });
   };
@@ -490,7 +494,8 @@ export function PurchaseOrderForm({ initialData }: { initialData?: PurchaseOrder
                       <TableHeader><TableRow>
                         <TableHead>สินค้า</TableHead>
                         <TableHead className="w-[120px]">จำนวน</TableHead>
-                        <TableHead className="w-[120px]">ราคา/หน่วย</TableHead>
+                        <TableHead className="w-[120px]">ต้นทุน/หน่วย</TableHead>
+                        <TableHead className="w-[120px]">ราคาขาย/หน่วย</TableHead>
                         <TableHead className="w-[50px]"></TableHead>
                       </TableRow></TableHeader>
                       <TableBody>
@@ -499,11 +504,12 @@ export function PurchaseOrderForm({ initialData }: { initialData?: PurchaseOrder
                             <TableCell>{item.displayName}<p className="text-xs text-muted-foreground">{item.sku}</p></TableCell>
                             <TableCell><FormField control={control} name={`items.${index}.quantity`} render={({ field }) => <FormItem><FormControl><NumericInput isDecimal={false} {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
                             <TableCell><FormField control={control} name={`items.${index}.cost`} render={({ field }) => <FormItem><FormControl><NumericInput {...field} /></FormControl><FormMessage /></FormItem>} /></TableCell>
+                            <TableCell><FormField control={control} name={`items.${index}.sellingPrice`} render={({ field }) => <FormItem><FormControl><NumericInput {...field} value={field.value ?? ''} placeholder="จากล็อตล่าสุด" /></FormControl><FormMessage /></FormItem>} /></TableCell>
                             <TableCell><Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button></TableCell>
                           </TableRow>
                         ))}
                          {fields.length === 0 && (
-                            <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground h-24">ไม่พบรายการสินค้า</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground h-24">ไม่พบรายการสินค้า</TableCell></TableRow>
                         )}
                       </TableBody>
                     </Table>

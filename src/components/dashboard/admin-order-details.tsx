@@ -604,6 +604,9 @@ export function AdminOrderDetails({ order, orderItems: orderItemsProp, buyer, ad
                                                             {item.taxStatus === 'EXEMPT' ? 'ยกเว้นภาษี' : (item.taxMode === 'EXCLUSIVE' ? 'แยก VAT' : 'รวม VAT')}
                                                         </p>
                                                     )}
+                                                    {item.lotLabel && (
+                                                        <Badge variant="outline" className="mt-1 text-[9px] h-4">📦 {item.lotLabel}</Badge>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className="text-center text-sm">{item.quantity}</TableCell>
                                                 <TableCell className="text-right text-sm">฿{item.itemPrice.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</TableCell>

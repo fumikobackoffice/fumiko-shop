@@ -18,10 +18,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect, ChangeEvent, useMemo } from 'react';
-import { Loader2, PlusCircle, Trash2, Building2, Headset, Percent, Megaphone, ImagePlus, X, Pencil, Info, CheckCircle2 } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Building2, Headset, Percent, Megaphone, ImagePlus, X, Pencil, Info, CheckCircle2, Construction, Eye, AlertTriangle } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { doc, setDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { StoreSettings } from '@/lib/types';
+import { StoreSettings, MaintenanceConfig } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 import { UnsavedChangesDialog } from './unsaved-changes-dialog';
 import { useRouter } from 'next/navigation';
@@ -35,6 +35,10 @@ import { Badge } from '../ui/badge';
 import { clearGlobalCache } from '@/hooks/use-smart-fetch';
 import { useUploadImage } from '@/firebase/storage/use-storage';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const NumericInput = ({ value, onChange, onBlur: rhfOnBlur, isDecimal = true, ...props }: { value: string | number | null | undefined, onChange: (val: string) => void, onBlur: (e: any) => void, isDecimal?: boolean, [key: string]: any }) => {
     const [isFocused, setIsFocused] = useState(false);
@@ -101,6 +105,15 @@ const companyAddressSchema = z.object({
   phone: z.string().min(1, 'กรุณากรอกเบอร์โทรศัพท์'),
 });
 
+const maintenanceModeSchema = z.object({
+  enabled: z.boolean().default(false),
+  title: z.string().optional(),
+  message: z.string().optional(),
+  imageUrl: z.string().optional(),
+  estimatedEndDate: z.string().optional(),
+  estimatedEndTime: z.string().optional(),
+});
+
 const formSchema = z.object({
   defaultShippingRates: shippingRatesSchema,
   provincialShippingRates: z.array(provincialShippingRateSchema).optional(),
@@ -110,6 +123,7 @@ const formSchema = z.object({
   companyAddress: companyAddressSchema.optional(),
   supportPhone: z.string().optional(),
   supportLineId: z.string().optional(),
+  maintenanceMode: maintenanceModeSchema.optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -131,6 +145,14 @@ const defaultFormValues: FormValues = {
   },
   supportPhone: '0657546699',
   supportLineId: '@fumiko_support',
+  maintenanceMode: {
+    enabled: false,
+    title: '',
+    message: '',
+    imageUrl: '',
+    estimatedEndDate: '',
+    estimatedEndTime: '',
+  },
 };
 
 interface StoreSettingsFormProps {
@@ -148,7 +170,8 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
   
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [nextPath, setNextPath] = useState<string | null>(null);
-  const { deleteImage } = useUploadImage();
+  const [isMaintenancePreviewOpen, setIsMaintenancePreviewOpen] = useState(false);
+  const { uploadImage, deleteImage } = useUploadImage('maintenance');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -161,6 +184,19 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
 
   useEffect(() => {
     if (initialData) {
+      // Parse estimatedEndTime for maintenance mode
+      let estDate = '';
+      let estTime = '';
+      if (initialData.maintenanceMode?.estimatedEndTime) {
+        const d = initialData.maintenanceMode.estimatedEndTime?.toDate
+          ? initialData.maintenanceMode.estimatedEndTime.toDate()
+          : new Date(initialData.maintenanceMode.estimatedEndTime);
+        if (!isNaN(d.getTime())) {
+          estDate = format(d, 'yyyy-MM-dd');
+          estTime = format(d, 'HH:mm');
+        }
+      }
+
       reset({
         defaultShippingRates: initialData.defaultShippingRates || defaultFormValues.defaultShippingRates,
         provincialShippingRates: initialData.provincialShippingRates || [],
@@ -170,6 +206,14 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
         companyAddress: initialData.companyAddress || defaultFormValues.companyAddress,
         supportPhone: initialData.supportPhone || '',
         supportLineId: initialData.supportLineId || '',
+        maintenanceMode: {
+          enabled: initialData.maintenanceMode?.enabled || false,
+          title: initialData.maintenanceMode?.title || '',
+          message: initialData.maintenanceMode?.message || '',
+          imageUrl: initialData.maintenanceMode?.imageUrl || '',
+          estimatedEndDate: estDate,
+          estimatedEndTime: estTime,
+        },
       });
     }
   }, [initialData, reset]);
@@ -177,10 +221,26 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
   const saveSettings = async (values: FormValues) => {
     if (!firestore || readOnly) return false;
     try {
-        const { dirtyFields } = form.formState;
-        
         const settingsRef = doc(firestore, 'settings', 'store');
-        await setDoc(settingsRef, values, { merge: true });
+        
+        // Transform maintenance mode date/time to Firestore-compatible format
+        const dataToSave: any = { ...values };
+        if (values.maintenanceMode) {
+          const { estimatedEndDate, estimatedEndTime, ...rest } = values.maintenanceMode;
+          let estimatedEnd: Date | null = null;
+          if (estimatedEndDate) {
+            const timePart = estimatedEndTime || '00:00';
+            estimatedEnd = new Date(`${estimatedEndDate}T${timePart}:00`);
+            if (isNaN(estimatedEnd.getTime())) estimatedEnd = null;
+          }
+          dataToSave.maintenanceMode = {
+            ...rest,
+            estimatedEndTime: estimatedEnd,
+            updatedAt: serverTimestamp(),
+          };
+        }
+
+        await setDoc(settingsRef, dataToSave, { merge: true });
         
         clearGlobalCache('store-settings-data');
         onRefresh();
@@ -309,6 +369,150 @@ export function StoreSettingsForm({ initialData, isLoading, readOnly, onRefresh 
                 <FormField name="pointValue" control={form.control} render={({ field }) => (<FormItem><FormLabel>มูลค่าของคะแนน (บาท)</FormLabel><FormControl><div className="flex items-center gap-2 max-w-sm"><span>1 คะแนน มีมูลค่าเท่ากับ</span><NumericInput {...field} disabled={readOnly} className="w-24 text-center" /><span>บาท</span></div></FormControl></FormItem>)} />
             </CardContent>
           </Card>
+
+          {/* Maintenance Mode Card */}
+          <Card className={cn("border-2 transition-colors", watch('maintenanceMode.enabled') ? 'border-destructive bg-destructive/5' : 'border-orange-200')}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Construction className={cn("h-5 w-5", watch('maintenanceMode.enabled') ? 'text-destructive' : 'text-orange-500')} />
+                ปิดปรับปรุงเว็บไซต์ (Maintenance Mode)
+                {watch('maintenanceMode.enabled') && (
+                  <Badge variant="destructive" className="ml-2 animate-pulse">กำลังเปิดใช้งาน</Badge>
+                )}
+              </CardTitle>
+              <CardDescription className="text-xs">เมื่อเปิดโหมดนี้ ลูกค้าทุกคนจะไม่สามารถใช้งานระบบได้ และจะเห็นหน้าประกาศปิดปรับปรุงตามที่กำหนดไว้</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {watch('maintenanceMode.enabled') && (
+                <Alert variant="destructive" className="bg-destructive/10">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-xs font-bold">
+                    ⚠️ Maintenance Mode เปิดอยู่! ลูกค้าทุกคนจะไม่สามารถเข้าใช้งานระบบได้ กรุณาปิดเมื่อปรับปรุงเสร็จ
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <FormField name="maintenanceMode.enabled" control={form.control} render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base font-bold">เปิดโหมดปิดปรับปรุง</FormLabel>
+                    <FormDescription className="text-xs">เมื่อเปิด ลูกค้าจะเห็นเฉพาะหน้าปิดปรับปรุง ระบบจะไม่ trigger ประกาศหรือคำถามบังคับใดๆ</FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} disabled={readOnly} />
+                  </FormControl>
+                </FormItem>
+              )} />
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-muted-foreground">ข้อมูลที่แสดงในหน้าปิดปรับปรุง</h3>
+
+                <FormField name="maintenanceMode.title" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>หัวข้อประกาศ</FormLabel>
+                    <FormControl><Input placeholder="เช่น ระบบปิดปรับปรุงชั่วคราว" {...field} disabled={readOnly} /></FormControl>
+                  </FormItem>
+                )} />
+
+                <FormField name="maintenanceMode.message" control={form.control} render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>รายละเอียดข้อความ</FormLabel>
+                    <FormControl><Textarea rows={3} placeholder="เช่น เรากำลังปรับปรุงระบบเพื่อให้บริการที่ดียิ่งขึ้น..." {...field} disabled={readOnly} /></FormControl>
+                  </FormItem>
+                )} />
+
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <FormLabel>รูปภาพประกอบ</FormLabel>
+                  {watch('maintenanceMode.imageUrl') ? (
+                    <div className="relative group aspect-video max-w-sm rounded-lg overflow-hidden border">
+                      <img src={watch('maintenanceMode.imageUrl')} alt="Maintenance" className="h-full w-full object-contain" />
+                      {!readOnly && (
+                        <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => {
+                          const removedUrl = watch('maintenanceMode.imageUrl');
+                          setValue('maintenanceMode.imageUrl', '', { shouldDirty: true });
+                          if (removedUrl) deleteImage(removedUrl);
+                        }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <label htmlFor="maintenance-img-upload" className={cn("flex aspect-video max-w-sm w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-orange-200 bg-orange-50/50 hover:bg-orange-100/50 transition-colors", readOnly ? 'cursor-default' : 'cursor-pointer')}>
+                      <ImagePlus className="h-8 w-8 mb-2 text-orange-300" />
+                      <span className="text-xs text-muted-foreground">คลิกเพื่ออัปโหลดรูปภาพ</span>
+                      {!readOnly && <Input id="maintenance-img-upload" type="file" accept="image/*" className="sr-only" onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) { toast({ variant: 'destructive', title: 'ไฟล์ใหญ่เกินไป' }); return; }
+                        toast({ title: 'กำลังอัปโหลด...' });
+                        try {
+                          const url = await uploadImage(file);
+                          setValue('maintenanceMode.imageUrl', url, { shouldDirty: true });
+                          toast({ title: 'อัปโหลดสำเร็จ' });
+                        } catch { toast({ variant: 'destructive', title: 'อัปโหลดล้มเหลว' }); }
+                      }} />}
+                    </label>
+                  )}
+                </div>
+
+                {/* Estimated End Time */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField name="maintenanceMode.estimatedEndDate" control={form.control} render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>วันที่คาดว่าจะกลับมา (ไม่บังคับ)</FormLabel>
+                      <FormControl><Input type="date" {...field} disabled={readOnly} /></FormControl>
+                    </FormItem>
+                  )} />
+                  <FormField name="maintenanceMode.estimatedEndTime" control={form.control} render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>เวลาที่คาดว่าจะกลับมา</FormLabel>
+                      <FormControl><Input type="time" {...field} disabled={readOnly} /></FormControl>
+                    </FormItem>
+                  )} />
+                </div>
+              </div>
+
+              {/* Preview Button */}
+              {!readOnly && (
+                <div className="flex justify-end pt-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setIsMaintenancePreviewOpen(true)}>
+                    <Eye className="mr-2 h-4 w-4" /> ดูตัวอย่างหน้าปิดปรับปรุง
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Maintenance Preview Dialog */}
+          <Dialog open={isMaintenancePreviewOpen} onOpenChange={setIsMaintenancePreviewOpen}>
+            <DialogContent className="max-w-lg p-0 overflow-hidden gap-0">
+              <DialogTitle className="sr-only">ตัวอย่างหน้าปิดปรับปรุง</DialogTitle>
+              <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-8 text-center space-y-4 min-h-[400px] flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center ring-4 ring-amber-500/10">
+                  <Construction className="h-8 w-8 text-amber-400" />
+                </div>
+                <h2 className="text-2xl font-bold">{watch('maintenanceMode.title') || 'ระบบปิดปรับปรุงชั่วคราว'}</h2>
+                {watch('maintenanceMode.message') && (
+                  <p className="text-sm text-slate-300 whitespace-pre-wrap max-w-md">{watch('maintenanceMode.message')}</p>
+                )}
+                {watch('maintenanceMode.imageUrl') && (
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10 max-w-sm mx-auto">
+                    <img src={watch('maintenanceMode.imageUrl')} alt="Preview" className="w-full h-full object-contain bg-black/20" />
+                  </div>
+                )}
+                {watch('maintenanceMode.estimatedEndDate') && (
+                  <p className="text-xs text-slate-400">
+                    คาดว่าจะกลับมาเปิดให้บริการ: <span className="font-bold text-white">{watch('maintenanceMode.estimatedEndDate')} {watch('maintenanceMode.estimatedEndTime') || ''}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-slate-500 pt-4">ขออภัยในความไม่สะดวก ระบบกำลังปรับปรุงเพื่อให้บริการที่ดียิ่งขึ้น</p>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {!readOnly && (
             <div className="flex justify-end"><Button type="submit" disabled={isSubmitting || !isDirty} size="lg">{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}บันทึกการเปลี่ยนแปลง</Button></div>
           )}

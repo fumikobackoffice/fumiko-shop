@@ -11,6 +11,7 @@ import { AddToCartButton } from '@/components/shop/add-to-cart-button';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { ProductGroup, ProductVariant, Product as ProductType } from '@/lib/types';
+import { getDisplayPrice } from '@/lib/lot-pricing';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -148,7 +149,7 @@ function ProductDetails() {
   }, [variants, selectedVariant]);
 
 
-  const displayPrice = selectedVariant?.price ?? (variants?.[0]?.price ?? 0);
+  const displayPrice = selectedVariant ? getDisplayPrice(selectedVariant) : (variants?.[0] ? getDisplayPrice(variants[0]) : 0);
   const displayCompareAtPrice = selectedVariant?.compareAtPrice ?? (variants?.[0]?.compareAtPrice);
   const isSale = !!(displayCompareAtPrice && displayCompareAtPrice > displayPrice);
   

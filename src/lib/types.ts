@@ -188,6 +188,7 @@ export type InventoryLot = {
   purchaseOrderNumber?: string; 
   quantity: number;
   cost: number;
+  sellingPrice?: number; // ราคาขายเฉพาะล็อต (ถ้าไม่ระบุจะใช้ variant.price)
   receivedAt: any;
 };
 
@@ -280,6 +281,9 @@ export type CartItem = {
   quantity: number;
   type: 'PRODUCT' | 'PACKAGE' | 'SERVICE';
   item: Product | ProductPackage | Service;
+  lotPrice?: number;       // ราคาขายจากล็อต (ใช้แยกรายการเมื่อราคาต่างกัน)
+  lotLabel?: string;       // ป้ายกำกับล็อต เช่น "PO-2024001 (10/01/67)"
+  maxLotQuantity?: number; // จำนวนสูงสุดของล็อตราคานี้
 };
 
 export type OrderStatus = 'PENDING_PAYMENT' | 'PROCESSING' | 'READY_TO_SHIP' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
@@ -348,6 +352,7 @@ export type OrderItem = {
   quantity: number;
   itemPrice: number;
   fulfilledFromLots?: { lotId: string; quantity: number; costPerItem: number; }[];
+  lotLabel?: string; // ป้ายกำกับล็อต (เก็บในออเดอร์)
   
   taxStatus?: TaxStatus;
   taxMode?: TaxMode;
@@ -468,6 +473,7 @@ export type PurchaseOrderItem = {
   sku: string; 
   quantity: number;
   cost: number; 
+  sellingPrice?: number; // ราคาขายที่ตั้งใจจะใช้เมื่อรับสินค้า
   quantityReceived: number;
 };
 
@@ -560,6 +566,15 @@ export type StoreAnnouncement = {
   updatedAt?: any;
 };
 
+export type MaintenanceConfig = {
+  enabled: boolean;
+  title?: string;
+  message?: string;
+  imageUrl?: string;
+  estimatedEndTime?: any; // Firestore Timestamp or Date
+  updatedAt?: any;
+};
+
 export type StoreSettings = {
   defaultShippingRates: ShippingRates,
   provincialShippingRates?: ProvincialShippingRate[],
@@ -571,6 +586,7 @@ export type StoreSettings = {
   supportLineId?: string;
   announcement?: StoreAnnouncement;
   mandatoryQuizzes?: StoreMandatoryQuiz[];
+  maintenanceMode?: MaintenanceConfig;
 };
 
 export type StoreBankAccount = {

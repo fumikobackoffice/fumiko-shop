@@ -1,5 +1,6 @@
 'use client';
 import { ProductGroup, ProductVariant, ProductPackage, Product, Service } from "@/lib/types";
+import { getDisplayPrice } from "@/lib/lot-pricing";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
@@ -124,7 +125,7 @@ function ProductGroupCard({ productGroup, variants: allVariants }: { productGrou
     return null;
   }, [selectedVariant, productGroup]);
 
-  const displayPrice = selectedVariant?.price ?? allVariants?.[0]?.price;
+  const displayPrice = selectedVariant ? getDisplayPrice(selectedVariant) : allVariants?.[0] ? getDisplayPrice(allVariants[0]) : undefined;
   const displayCompareAtPrice = selectedVariant?.compareAtPrice ?? allVariants?.[0]?.compareAtPrice;
   const isSale = displayPrice !== undefined && displayCompareAtPrice && displayCompareAtPrice > displayPrice;
   
@@ -135,8 +136,10 @@ function ProductGroupCard({ productGroup, variants: allVariants }: { productGrou
   
   const quantityInCart = useMemo(() => {
     if (!selectedVariant) return 0;
-    const itemInCart = cartItems.find(item => item.id === selectedVariant.id);
-    return itemInCart?.quantity ?? 0;
+    // Account for lot-split: items for same variant may have different IDs (variantId:price)
+    return cartItems
+      .filter(item => item.type === 'PRODUCT' && (item.item as Product).id === selectedVariant.id)
+      .reduce((sum, item) => sum + item.quantity, 0);
   }, [cartItems, selectedVariant]);
 
   const availableStock = useMemo(() => {
