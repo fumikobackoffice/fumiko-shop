@@ -199,7 +199,7 @@ const deductFromLots = (lots: InventoryLot[], quantityToDeduct: number) => {
         if (needed <= 0) break;
         const take = Math.min(lot.quantity, needed);
         if (take > 0) {
-            fulfilledFromLots.push({ lotId: lot.lotId, quantity: take, costPerItem: lot.cost, sellingPrice: lot.sellingPrice });
+            fulfilledFromLots.push({ lotId: lot.lotId, quantity: take, costPerItem: lot.cost, ...(lot.sellingPrice != null ? { sellingPrice: lot.sellingPrice } : {}) });
             lot.quantity -= take;
             needed -= take;
         }

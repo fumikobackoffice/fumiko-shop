@@ -351,7 +351,7 @@ export type OrderItem = {
   productImage?: string;
   quantity: number;
   itemPrice: number;
-  fulfilledFromLots?: { lotId: string; quantity: number; costPerItem: number; }[];
+  fulfilledFromLots?: { lotId: string; quantity: number; costPerItem: number; sellingPrice?: number; }[];
   lotLabel?: string; // ป้ายกำกับล็อต (เก็บในออเดอร์)
   
   taxStatus?: TaxStatus;
